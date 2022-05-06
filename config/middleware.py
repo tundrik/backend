@@ -1,5 +1,4 @@
 from base.helpers import generate_uuid
-from constants import HOST_FRONTEND
 
 
 class ResponseHttpMiddleware:

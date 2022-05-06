@@ -79,10 +79,10 @@ class LoginApi(Endpoint):
         if employee is None:
             raise ValidateError(f"Не найден сотрудник c номером <br />{phone}")
 
-        telegram_chat_id = 786033449  # employee.telegram_chat_id
+        telegram_chat_id = employee.telegram_chat_id
 
         if telegram_chat_id is None:
-            raise ValidateError("Не найден телеграм чат, авторизуйтесь у Телеграм бота")
+            raise ValidateError("Не найден телеграм чат, авторизуйтесь у телеграм бота @LibertyRealtyBot")
 
         try:
             await TelegramService.send_message(chat_id=telegram_chat_id, send_text=send_text_view)

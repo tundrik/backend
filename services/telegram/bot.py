@@ -1,8 +1,9 @@
 import asyncio
 import httpx
 import orjson
-
 from constants import TELEGRAM_URL, WEBHOOK_TELEGRAM_HOST, WEBHOOK_TELEGRAM_PATH, MASTER_CHAT_ID, IS_WEBHOOK_TELEGRAM
+
+from repository.query import query_employee
 
 
 class TelegramService:
@@ -114,26 +115,25 @@ class TelegramService:
         body_dict = orjson.loads(body_bytes)
         message = body_dict.get('message')
         if message:
-            print(message)
             text = message.get('text')
             contact = message.get('contact')
             chat_id = message['chat']['id']
 
             if contact:
-                msg = "Спасибо"
+                employee = await query_employee(contact.get('phone_number'), chat_id)
+                if employee:
+                    msg = "Готово"
+                else:
+                    msg = "Не найден сотрудник"
                 asyncio.create_task(cls.send_message(chat_id=chat_id, send_text=msg))
 
-            elif text == "/help":
-                asyncio.create_task(cls.send_message(chat_id=chat_id, send_text="HELP_MESSAGE"))
-
-            elif text == "/authorize":
-                asyncio.create_task(cls._get_user_profile_contact(chat_id))
-
             elif text == "/start":
-                asyncio.create_task(cls.send_message(chat_id=chat_id, send_text="START_MESSAGE"))
+                asyncio.create_task(cls._get_user_profile_contact(chat_id))
 
             else:
                 msg = "Меня такому еще не научили"
                 asyncio.create_task(cls.send_message(chat_id=chat_id, send_text=msg))
 
         print(body_dict)
+
+
