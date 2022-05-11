@@ -223,7 +223,7 @@ class ExploreRepository(Bsv):
 
     @sync_to_async
     def query_estate(self, params, path, query):
-        qs = Estate.objects.filter(**params) \
+        qs = Estate.objects.filter(has_site=True, **params) \
             .prefetch_related('media') \
             .prefetch_related('location') \
             .prefetch_related('employee')
@@ -233,7 +233,7 @@ class ExploreRepository(Bsv):
 
     @sync_to_async
     def query_estate_node(self, pk):
-        return Estate.objects.filter(pk=pk) \
+        return Estate.objects.filter(has_site=True, pk=pk) \
             .prefetch_related('media') \
             .prefetch_related('location') \
             .prefetch_related('employee').first()

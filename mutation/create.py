@@ -117,7 +117,6 @@ class CreateInspector(Bsv):
             )
 
         db_location = Location.objects.create(**location)
-
         db_estate = Estate.objects.create(
             employee_id=self.viewer.pk,
             customer=db_customer,

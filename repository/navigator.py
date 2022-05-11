@@ -13,11 +13,17 @@ from domain.models import RESIDENTIAL, HOUSE, GROUND, COMMERCIAL, Estate, Projec
 
 
 class NavigatorRepository(Bsv):
+    demand_image = {
+        RESIDENTIAL: 'https://storage.yandexcloud.net/graph/static/crm/1.png',
+        HOUSE: 'https://storage.yandexcloud.net/graph/static/crm/3.png',
+        GROUND: 'https://storage.yandexcloud.net/graph/static/crm/4.png',
+        COMMERCIAL: 'https://storage.yandexcloud.net/graph/static/crm/5.png',
+    }
     readable_demand_caption = {
-        RESIDENTIAL: 'Заявка на Квартиру',
-        HOUSE: 'Заявка на Дом',
-        GROUND: 'Заявка на Участок',
-        COMMERCIAL: 'Заявка на Коммерцию',
+        RESIDENTIAL: 'квартиры',
+        HOUSE: 'дома',
+        GROUND: 'участка',
+        COMMERCIAL: 'коммерции',
     }
     READABLE_ROOMS = {
         11: 'Квартира студия',
@@ -88,6 +94,13 @@ class NavigatorRepository(Bsv):
             'edges': edges,
         }
 
+    def inspect_access(self, employee):
+        if self.viewer.role == "boss":
+            return True
+        if self.viewer.role == "mini_boss" and employee.manager_id == self.viewer.pk:
+            return True
+        return self.viewer.pk == employee.pk
+
     def serialize_project(self, entity, code_node):
         present = {
             'price': "от " + readable_price(entity.price),
@@ -97,6 +110,7 @@ class NavigatorRepository(Bsv):
         return {
             "node": code_node,
             "node_type": "project",
+            "has_edit": self.inspect_access(entity.employee),
             "person": self.serialize_person(entity.employee, "Риэлтор"),
             "mediaImages": self.serialize_media_images(entity.media.all()),
             "present": present,
@@ -130,15 +144,15 @@ class NavigatorRepository(Bsv):
         if entity.has_domclick:
             published = published + " • DomClick"
 
-        has_edit = self.viewer.pk == entity.employee.pk
-        if has_edit:
+        if self.viewer.pk == entity.employee.pk:
             person = self.serialize_person(entity.customer, "Собственник")
         else:
             person = self.serialize_person(entity.employee, "Риэлтор")
+
         return {
             "node": code_node,
             "node_type": "estate",
-            "has_edit": has_edit,
+            "has_edit": self.inspect_access(entity.employee),
             "person": person,
             "present": present,
             "mediaImages": self.serialize_media_images(entity.media.all()),
@@ -163,26 +177,36 @@ class NavigatorRepository(Bsv):
             'priceSquare': price_square,
             'square': square,
         }
-        has_edit = self.viewer.pk == entity.employee.pk
-        if has_edit:
+
+        if self.viewer.pk == entity.employee.pk:
             person = self.serialize_person(entity.customer, "Клиент")
         else:
             person = self.serialize_person(entity.employee, "Риэлтор")
+
+        if entity.deal == "rent":
+            deal = "Аренда"
+        else:
+            deal = "Покупка"
+        caption = "{} {}".format(deal, self.readable_demand_caption.get(entity.type_enum)),
         return {
             "node": code_node,
             "node_type": "demand",
+            "has_edit": self.inspect_access(entity.employee),
+            "mediaImages": self.demand_image.get(entity.type_enum),
             "present": present,
             "person": person,
-            "caption": self.readable_demand_caption.get(entity.type_enum),
+            "caption": caption,
             "comment": entity.comment,
             "published": seconds_to_text(entity.published),
             "pk": "ID: " + str(entity.pk)
         }
 
     def serialize_employee(self, entity, code_node):
+        print(self.viewer.role)
         return {
             "node": code_node,
             "node_type": "employee",
+            "has_edit": self.viewer.role == "boss" or self.viewer.role == "ADMIN",
             'person': self.serialize_person(entity, "Риэлтор")
         }
 
@@ -271,7 +295,7 @@ class NavigatorRepository(Bsv):
 
     @sync_to_async
     def query_employee(self, params, path, query):
-        qs = Employee.objects.filter(**params)
+        qs = Employee.objects.filter(**params).exclude(role="ADMIN")
         paginator = CursorPaginator(qs, path=path, query=query)
         entities_orm, cursor = paginator.get_instances()
         return entities_orm, cursor

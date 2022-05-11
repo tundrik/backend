@@ -13,7 +13,7 @@ class Person(models.Model):
     first_name = models.CharField(max_length=32)
     last_name = models.CharField(max_length=32)
     phone = models.PositiveBigIntegerField()
-
+    search_full = models.CharField(max_length=128)
     ranging = models.PositiveIntegerField()
 
     class Meta:
@@ -25,6 +25,7 @@ class Employee(Person):
     telegram_chat_id = models.PositiveBigIntegerField(null=True)
     role = models.CharField(max_length=16, default='realtor')
     manager = models.ForeignKey('self', related_name='+', null=True, on_delete=models.SET_NULL)
+    has_active = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'employee'
@@ -38,8 +39,10 @@ class Customer(Person):
 
 
 class Demand(models.Model):
-    """Таблица заявок на покупку"""
+    """Таблица заявок на покупку и аренду"""
     id = models.AutoField(primary_key=True)
+    deal = models.CharField(max_length=16)
+    """deal: (bay|rent)"""
     type_enum = models.CharField(max_length=16)
     """type_enum: (residential|house|ground|commercial)"""
     price = models.PositiveIntegerField(default=0)
@@ -136,6 +139,8 @@ class Estate(models.Model):
     supple JSON: 
             has_last_floor: bool   последний этаж
             renovation: int        ремонт
+            walls_type: материал стен
+            status: статус участка
     """
     supple = models.JSONField(default=dict)
 

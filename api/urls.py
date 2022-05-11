@@ -5,7 +5,7 @@ from api.features import FeaturesApi, ToggleFeatureApi
 from api.feed import AvitoApi, YandexApi, CianApi
 from api.login import LoginApi
 from api.mutate import AddApi, UpdateApi, DeleteApi
-from api.search import SuggestionsApi, ProjectApi, TestApi
+from api.search import SuggestionsApi, ProjectApi, TestApi, ManagerApi
 from api.profile import ViewerApi, KitApi, KitMembersApi, SavedApi, DeleteSavedApi
 from api.navigator import REGEX_NAVIGATOR, NavigatorApi
 from base.response import no_data, forbidden, bad_request
@@ -28,7 +28,8 @@ internal_url = [
     path('mutate/<str:code_node>/', UpdateApi.dispatch),
     path('delete/<str:code_node>/', DeleteApi.dispatch),
     path('search/suggestions/', SuggestionsApi.dispatch),
-    path('search/projects/', ProjectApi.dispatch),
+    path('search/project/', ProjectApi.dispatch),
+    path('search/manager/', ManagerApi.dispatch),
     path('profile/', include(profile_url)),
 ]
 

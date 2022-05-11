@@ -5,6 +5,7 @@ from base.helpers import decode_node_name
 from domain.models import Demand, Employee, Customer, Project, Estate
 from mutation.validate import validate_employee, validate_customer, validate_demand, validate_project, validate_estate
 from services.yandex.s3 import YandexUploader
+from storage.store import Store
 
 
 class MutateInspector(Bsv):
@@ -17,6 +18,10 @@ class MutateInspector(Bsv):
     async def inspect_employee(self, pk, payload, files):
         image = files.get('image')
         employee = validate_employee(payload)
+        if bool(payload.get('has_active')):
+            await Store.delete_blocked(pk)
+        else:
+            await Store.set_blocked(pk)
 
         if image:
             pic_name = await self.get_pic(pk)

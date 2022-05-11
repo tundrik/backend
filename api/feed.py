@@ -72,17 +72,17 @@ OBJECT_AVITO = {
 }
 
 RENOVATION_AVITO = {
-    0: 'Требуется',
-    1: 'Косметический',
-    2: 'Евро',
-    3: 'Дизайнерский',
+    "1": 'Требуется',
+    "2": 'Косметический',
+    "3": 'Евро',
+    "4": 'Дизайнерский',
 }
 
 RENOVATION_YANDEX = {
-    0: 'требует ремонта',
-    1: 'косметический',
-    2: 'евроремонт',
-    3: 'дизайнерский',
+    "1": 'требует ремонта',
+    "2": 'косметический',
+    "3": 'евроремонт',
+    "4": 'дизайнерский',
 }
 
 
@@ -171,7 +171,8 @@ class AvitoApi(Endpoint):
                 add_filed(ad, 'PassengerElevator', passenger_elevator)
 
             if estate.type_enum == RESIDENTIAL or estate.type_enum == HOUSE:
-                add_filed(ad, 'Renovation', RENOVATION_AVITO.get(estate.renovation))
+                renovation = estate.supple.get("renovation", "1")
+                add_filed(ad, 'Renovation', RENOVATION_AVITO.get(renovation))
 
             if estate.type_enum == RESIDENTIAL:
                 room_type = Element("RoomType")
@@ -251,7 +252,8 @@ class YandexApi(Endpoint):
                 ad.append(lot_area)
 
             if estate.type_enum == RESIDENTIAL or estate.type_enum == HOUSE:
-                add_filed(ad, 'renovation', RENOVATION_YANDEX.get(estate.renovation))
+                renovation = estate.supple.get("renovation", "1")
+                add_filed(ad, 'Renovation', RENOVATION_YANDEX.get(renovation))
 
             add_filed(ad, 'description', estate.comment)
 

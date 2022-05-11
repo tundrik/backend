@@ -10,7 +10,7 @@ class TelegramService:
     """
     Сервис Телеграмм Бот
     """
-    command_names = ['start', 'authorize', 'help']
+    command_names = ['start']
     webhook_url = WEBHOOK_TELEGRAM_HOST + WEBHOOK_TELEGRAM_PATH
     client = httpx.AsyncClient(timeout=10, base_url=TELEGRAM_URL)
     instance = None

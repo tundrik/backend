@@ -9,6 +9,7 @@ from base.bsv import ViewerType
 from base.exceptions import JwtError, send_log
 from base.JWT import decode_token
 from base.response import HttpError
+from storage.store import Store
 
 logger = logging.getLogger('base.endpoint')
 
@@ -19,7 +20,6 @@ class Endpoint:
 
     def __init__(self):
         self.payload = None
-        self.guid = None
         self.viewer = None
 
     async def __call__(self, request, *args):
@@ -40,11 +40,11 @@ class Endpoint:
         method = request.method.lower()
         self = cls()
 
-        cls.set_guid(self, request)
+        cls.set_viewer(self, request)
 
         access_level = kwargs.get('access_level')
         if access_level:
-            cls.authenticate(self, request, access_level)
+            await cls.authenticate(self, request, access_level)
             kwargs.pop('access_level')
 
         if method in cls.http_method_names:
@@ -68,7 +68,7 @@ class Endpoint:
 
         return response
 
-    def authenticate(self, request, access_level):
+    async def authenticate(self, request, access_level):
         """
         Если есть валидный непросроченный токен с нужным уровнем доступа
             устанавливает в self.viewer объект Viewer
@@ -88,13 +88,21 @@ class Endpoint:
 
         if person_dict.get(access_level):
             self.viewer = ViewerType(**person_dict)
+            has_blocked = await Store.get_blocked(self.viewer.pk)
+            if has_blocked:
+                raise PermissionDenied()
         else:
             raise PermissionDenied()
 
-    def set_guid(self, request):
-        """Устанавливает в self.guid глобальный уникальный идентификатор или None"""
-        self.guid = request.COOKIES.get('GUID')
-        self.viewer = ViewerType(pk=None, guid=self.guid, internal=False)
+    def set_viewer(self, request):
+        guid = request.COOKIES.get('GUID')
+        self.viewer = ViewerType(
+            pk=None,
+            role=None,
+            manager_id=None,
+            guid=guid,
+            internal=False
+        )
 
     def parse_body(self, body):
         """Парсит body и устанавливает в self.payload"""

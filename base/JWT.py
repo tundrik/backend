@@ -9,6 +9,8 @@ def generate_access_token(employee):
         'iss': 'local:django',
         'person': {
             'pk': employee.id,
+            'role': employee.role,
+            'manager_id': employee.manager_id,
             'guid':  str(employee.guid),
             'internal': True,
         },

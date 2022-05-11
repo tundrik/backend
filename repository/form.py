@@ -1,12 +1,29 @@
 from asgiref.sync import sync_to_async
 
 from base.bsv import Bsv
-from base.helpers import decode_node_name, phone_number_to_string
+from base.helpers import decode_node_name, phone_number_to_string, get_full_name
 from domain.models import Demand, Employee, Project, Estate, GROUND, HOUSE, RESIDENTIAL, COMMERCIAL
 
 ROLE = [
     {"value": "realtor", "label": "Риэлтор"},
     {"value": "mini_boss", "label": "Руководитель"},
+    {"value": "boss", "label": "Директор"},
+]
+
+RENOVATION = [
+    {"value": "1", "label": "Требуется"},
+    {"value": "2", "label": "Косметический"},
+    {"value": "3", "label": "Евро"},
+    {"value": "4", "label": "Дизайнерский"},
+]
+STATUS = [
+    {"value": "izhs", "label": "ИЖС"},
+    {"value": "snt", "label": "СНТ"},
+]
+
+DEAL = [
+    {"value": "bay", "label": "Покупка"},
+    {"value": "rent", "label": "Аренда"},
 ]
 
 RESIDENTIAL_OBJECTS = [
@@ -53,10 +70,10 @@ ESTATE_TYPE_ENUM = [
 ]
 
 DEMAND_TYPE_ENUM = [
-    {"value": "residential", "label": "Заявка на квартиру"},
-    {"value": "house", "label": "Заявка на дом"},
-    {"value": "ground", "label": "Заявка на участок"},
-    {"value": "commercial", "label": "Заявка на коммерцию"},
+    {"value": "residential", "label": "Квартиры"},
+    {"value": "house", "label": "Дома"},
+    {"value": "ground", "label": "Участка"},
+    {"value": "commercial", "label": "Коммерции"},
 ]
 
 
@@ -91,35 +108,41 @@ class FormRepository(Bsv):
 
         if type_enum == RESIDENTIAL:
             form.extend([
-                self.get_select("Тип объекта", entity.object_type, "", "object_type", RESIDENTIAL_OBJECTS),
+                self.get_select("Данные объекта", entity.object_type, "Тип объекта", "object_type",
+                                RESIDENTIAL_OBJECTS),
             ])
 
         if type_enum == HOUSE:
             form.extend([
-                self.get_select("Тип объекта", entity.object_type, "", "object_type", HOUSE_OBJECTS),
+                self.get_select("Данные объекта", entity.object_type, "Тип объекта", "object_type", HOUSE_OBJECTS),
             ])
 
         if type_enum == GROUND:
             form.extend([
-                self.get_select("Тип объекта", entity.object_type, "", "object_type", GROUND_OBJECTS),
+                self.get_select("Данные объекта", entity.object_type, "Тип объекта", "object_type", GROUND_OBJECTS),
             ])
 
         if type_enum == COMMERCIAL:
             form.extend([
-                self.get_select("Тип объекта", entity.object_type, "", "object_type", COMMERCIAL_OBJECTS),
+                self.get_select("Данные объекта", entity.object_type, "Тип объекта", "object_type", COMMERCIAL_OBJECTS),
             ])
 
         form.extend([
-            self.get_input("Данные объекта", entity.price, "Цена", "number", "price"),
+            self.get_input("", entity.price, "Цена", "number", "price"),
         ])
 
         if not type_enum == GROUND:
             form.extend([
                 self.get_input(None, entity.square, "Площадь", "number", "square"),
+                self.get_select(None, entity.supple.get("renovation"), "Ремонт", "renovation", RENOVATION),
             ])
         if type_enum == GROUND or type_enum == HOUSE:
             form.extend([
                 self.get_input(None, entity.square_ground, "Площадь участка", "number", "square_ground"),
+            ])
+        if type_enum == HOUSE:
+            form.extend([
+                self.get_select(None, entity.supple.get("status"), "Статус участка", "status", STATUS),
             ])
         settings = [
             self.get_input("Выгрузка", entity.has_site, "Показывать на сайте", "checkbox", "has_site"),
@@ -130,7 +153,9 @@ class FormRepository(Bsv):
         ]
         return {
             "type_node": "estate",
-            "type_enum": type_enum,
+            "extra": {
+                "type_enum": type_enum,
+            },
             "form": [
                 *form,
                 *settings,
@@ -141,14 +166,37 @@ class FormRepository(Bsv):
     async def retrieve_employee(self, pk):
         """Вернуть сотрудника"""
         entity = await self.query_employee(pk)
+        extra = {
+            "has_manager": entity.role == "mini_boss" or entity.role == "realtor",
+            "manager": {
+                "value": "",
+                "id": None,
+            }
+        }
+        if entity.manager:
+            extra = {
+                "has_manager": entity.role == "mini_boss" or entity.role == "realtor",
+                "manager": {
+                    "value": get_full_name(entity.manager),
+                    "id": entity.manager.pk,
+                }
+            }
+
+        form = [
+            self.get_input("Данные сотрудника", entity.first_name, "Имя", "text", "first_name"),
+            self.get_input(None, entity.last_name, "Фамилия", "text", "last_name"),
+            self.get_input(None, phone_number_to_string(entity.phone), "Телефон", "text", "phone"),
+
+        ]
+        if entity.role == "mini_boss" or entity.role == "realtor" or entity.role == "ADMIN":
+            form.extend([
+                self.get_select("", entity.role, "Роль сотрудника", "role", ROLE),
+                self.get_input(None, entity.has_active, "Активен", "checkbox", "has_active"),
+            ])
         return {
             "type_node": "employee",
-            "form": [
-                self.get_input("Данные сотрудника", entity.first_name, "Имя", "text", "first_name"),
-                self.get_input(None, entity.last_name, "Фамилия", "text", "last_name"),
-                self.get_input(None, phone_number_to_string(entity.phone), "Телефон", "text", "phone"),
-                self.get_select("Роль сотрудника", entity.role, "", "role", ROLE),
-            ],
+            "extra": extra,
+            "form": form
         }
 
     async def retrieve_demand(self, pk):
@@ -158,7 +206,8 @@ class FormRepository(Bsv):
         form = [
             self.get_input("Данные клиента", entity.customer.first_name, "Имя", "text", "first_name"),
             self.get_input(None, phone_number_to_string(entity.customer.phone), "Телефон", "text", "phone"),
-            self.get_input("Данные заявки", entity.price, "Бюджет", "number", "price"),
+            self.get_select("Данные заявки", entity.deal, "Тип сделки", "deal", DEAL),
+            self.get_input(None, entity.price, "Бюджет", "number", "price"),
         ]
         if not type_enum == GROUND:
             form.extend([
@@ -170,7 +219,9 @@ class FormRepository(Bsv):
             ])
         return {
             "type_node": "demand",
-            "type_enum": type_enum,
+            "extra": {
+                "type_enum": type_enum,
+            },
             "form": [
                 *form,
                 self.get_input("Детали заявки", entity.comment, "", "textarea", "comment"),
@@ -187,7 +238,7 @@ class FormRepository(Bsv):
 
     @sync_to_async
     def query_employee(self, pk):
-        return Employee.objects.get(pk=pk)
+        return Employee.objects.filter(pk=pk).select_related('manager').first()
 
     @sync_to_async
     def query_demand(self, pk):

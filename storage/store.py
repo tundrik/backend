@@ -32,6 +32,21 @@ class Store:
     redis = aioredis.StrictRedis(decode_responses=True)
 
     @classmethod
+    async def set_blocked(cls, pk):
+        key = "{}:{}".format("blocked", pk)
+        await cls.redis.set(key, "True")
+
+    @classmethod
+    async def delete_blocked(cls, pk):
+        key = "{}:{}".format("blocked", pk)
+        await cls.redis.delete(key)
+
+    @classmethod
+    async def get_blocked(cls, pk):
+        key = "{}:{}".format("blocked", pk)
+        return await cls.redis.get(key)
+
+    @classmethod
     async def get_saved(cls, guid: str, types: str):
         key = "{}:{}:{}".format("save", types, guid)
         res = await cls.redis.zrange(key, 0, -1, withscores=False)

@@ -8,6 +8,7 @@ from repository.navigator import NavigatorRepository
 
 REGEX_NAVIGATOR = '(?:(?P<node_type>(project|estate|demand|employee))/)' \
                   '(?:(?P<type_enum>(residential|house|ground|commercial))/)?' \
+                  '(?:(?P<deal>(bay|rent))/)?' \
                   '(?:has-main-(?P<has_main>on)/)?' \
                   '(?:has-site-(?P<has_site>on)/)?' \
                   '(?:has-avito-(?P<has_avito>on)/)?' \
@@ -42,6 +43,7 @@ class NavigatorApi(Endpoint):
 
     def generate_filter(self, node_type, kwargs, search):
         type_enum = kwargs.get("type_enum")
+        deal = kwargs.get("deal")
         price_min = kwargs.get("price_min")
         price_max = kwargs.get("price_max")
         square_min = kwargs.get("square_min")
@@ -64,6 +66,9 @@ class NavigatorApi(Endpoint):
 
         if type_enum:
             params['type_enum'] = type_enum
+
+        if deal:
+            params['deal'] = deal
 
         if kwargs.get("has_main"):
             params['employee_id'] = self.viewer.pk

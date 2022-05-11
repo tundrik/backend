@@ -31,19 +31,32 @@ def validate_phone(phone):
 
 
 def validate_employee(payload):
-    return {
-        "first_name": len_inspect(payload.get("first_name"), 3, "Введите имя"),
-        "last_name": len_inspect(payload.get("last_name"), 3, "Введите фамилию"),
-        "phone": validate_phone(payload.get("phone")),
-        "role": payload.get("role")
+    first_name = len_inspect(payload.get("first_name"), 3, "Введите имя")
+    last_name = len_inspect(payload.get("last_name"), 3, "Введите фамилию")
+    phone = validate_phone(payload.get("phone"))
+    valid = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": phone,
+        "search_full": "{} {} {}".format(first_name, last_name, phone),
+        "manager_id": payload.get("manager"),
+        "has_active": bool(payload.get('has_active')),
     }
+    role = payload.get('role')
+    if role:
+        valid["role"] = role
+    return valid
 
 
 def validate_customer(payload):
-    return {
-        "first_name": len_inspect(payload.get("first_name"), 3, "Введите имя"),
-        "phone": validate_phone(payload.get("phone"))
+    first_name = len_inspect(payload.get("first_name"), 3, "Введите имя")
+    phone = validate_phone(payload.get("phone"))
+    valid = {
+        "first_name": first_name,
+        "search_full": "{} {}".format(first_name, phone),
+        "phone": phone
     }
+    return valid
 
 
 def validate_demand(payload):
@@ -51,6 +64,7 @@ def validate_demand(payload):
     price = int_inspect(payload.get("price"), 1000000, "Введите бюджет<br>min 1 000 000")
     valid = {
         "type_enum": type_enum,
+        "deal": payload.get("deal"),
         "price": price,
         "comment": payload.get("comment"),
     }
@@ -136,11 +150,16 @@ def validate_estate(payload):
     type_enum = payload.get("type_enum")
 
     price = int_inspect(payload.get("price"), 1000000, "Введите цену")
+    comment_len = len(payload.get("comment"))
+    comment = len_inspect(
+        payload.get("comment"), 200,
+        f"Описание - требуется еще {200 - comment_len} символов"
+    ),
 
     valid = {
         "type_enum": type_enum,
         "price": price,
-        "comment": payload.get('comment'),
+        "comment": comment,
         "object_type": payload.get('object_type'),
         "has_site": bool(payload.get('has_site')),
         "has_avito": bool(payload.get('has_avito')),
@@ -163,6 +182,9 @@ def validate_estate(payload):
 
     supple = {}
 
+    if type_enum == HOUSE:
+        supple["status"] = payload.get('status')
+
     floor = payload.get('floor')
     if floor:
         valid["floor"] = floor
@@ -174,12 +196,16 @@ def validate_estate(payload):
     if renovation:
         supple["renovation"] = renovation
 
+    walls_type = payload.get('walls_type')
+    if walls_type:
+        supple["walls_type"] = walls_type
+
     rooms = payload.get('rooms')
     if rooms:
         valid["rooms"] = rooms
 
-    if payload.get('project_id'):
-        valid["project_id"] = payload.get('project_id')
+    if payload.get('project'):
+        valid["project_id"] = payload.get('project')
 
     valid["supple"] = supple
 

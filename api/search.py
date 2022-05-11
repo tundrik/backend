@@ -4,8 +4,9 @@ from asgiref.sync import sync_to_async
 from django.core.handlers.asgi import ASGIRequest
 
 from base.endpoint import Endpoint
+from base.helpers import get_full_name
 from base.response import OrjsonResponse
-from domain.models import Project
+from domain.models import Project, Employee
 
 
 class SuggestionsApi(Endpoint):
@@ -36,13 +37,31 @@ class ProjectApi(Endpoint):
         for entity in entities:
             edges.append({
                 "value": entity.project_name,
-                "project_id": entity.id
+                "id": entity.id
             })
         return OrjsonResponse({"suggestions": edges})
 
     @sync_to_async
     def query_progect(self, query):
         qs = Project.objects.filter(project_name__trigram_word_similar=query)
+        return list(qs)
+
+
+class ManagerApi(Endpoint):
+    async def get(self, request: ASGIRequest, **kwargs):
+        query = request.GET.get("g")
+        entities = await self.query_manager(query)
+        edges = []
+        for entity in entities:
+            edges.append({
+                "value": get_full_name(entity),
+                "id": entity.id
+            })
+        return OrjsonResponse({"suggestions": edges})
+
+    @sync_to_async
+    def query_manager(self, query):
+        qs = Employee.objects.filter(role="mini_boss", search_full__trigram_word_similar=query)
         return list(qs)
 
 

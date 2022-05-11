@@ -7,6 +7,7 @@ from base.endpoint import Endpoint
 from base.exceptions import ValidateError
 from base.helpers import generate_pin
 from base.response import OrjsonResponse, HttpError
+from constants import DOMAIN
 from domain.models import Employee
 from mutation.validate import validate_phone
 from services.telegram.bot import TelegramService
@@ -20,8 +21,8 @@ class LoginApi(Endpoint):
                 'success': True,
                 'access_token': "",
         })
-        response.delete_cookie('jwt_token')
-        response.delete_cookie('GUID')
+        response.delete_cookie('jwt_token', domain=DOMAIN)
+        response.delete_cookie('GUID', domain=DOMAIN)
         return response
 
     async def post(self, request: ASGIRequest):
@@ -41,13 +42,14 @@ class LoginApi(Endpoint):
                 })
                 response.set_cookie(
                     key='jwt_token',
-                    value=access_token
+                    value=access_token,
+                    domain=DOMAIN
                 )
                 response.set_cookie(
                     key='GUID',
                     value=guid,
-                    max_age=365 * 24 * 60 * 60
-
+                    max_age=365 * 24 * 60 * 60,
+                    domain=DOMAIN
                 )
                 return response
 
@@ -78,6 +80,9 @@ class LoginApi(Endpoint):
 
         if employee is None:
             raise ValidateError(f"Не найден сотрудник c номером <br />{phone}")
+
+        if not employee.has_active:
+            raise ValidateError(f"Сотрудник заблокирован")
 
         telegram_chat_id = employee.telegram_chat_id
 
