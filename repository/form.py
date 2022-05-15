@@ -26,10 +26,26 @@ DEAL = [
     {"value": "rent", "label": "Аренда"},
 ]
 
+ROOMS = [
+    {"value": "1", 'label': "1"},
+    {"value": "2", 'label': "2"},
+    {'value': "3", 'label': "3"},
+    {'value': "4", 'label': "4"},
+    {"value": "5", 'label': "5"},
+    {'value': "6", 'label': "6"},
+    {'value': "7", 'label': "7"},
+    {'value': "8", 'label': "8"},
+    {'value': "9", 'label': "9"},
+    {'value': "10", 'label': "10"},
+    {"value": "12", "label": "Свободная планировка"},
+    {"value": "11", "label": "Студия"},
+]
+
+
 RESIDENTIAL_OBJECTS = [
-    {"value": 1, "label": "Квартира"},
-    {"value": 2, "label": "Апартамент"},
-    {"value": 3, "label": "Жилое помещение"},
+    {"value": 1, "label": "Жилое помещение"},
+    {"value": 2, "label": "Квартира"},
+    {"value": 3, "label": "Апартамент"},
 ]
 
 HOUSE_OBJECTS = [
@@ -134,8 +150,10 @@ class FormRepository(Bsv):
         if not type_enum == GROUND:
             form.extend([
                 self.get_input(None, entity.square, "Площадь", "number", "square"),
+                self.get_select(None, entity.rooms, "Количество комнат", "rooms", ROOMS),
                 self.get_select(None, entity.supple.get("renovation"), "Ремонт", "renovation", RENOVATION),
             ])
+
         if type_enum == GROUND or type_enum == HOUSE:
             form.extend([
                 self.get_input(None, entity.square_ground, "Площадь участка", "number", "square_ground"),
@@ -166,32 +184,25 @@ class FormRepository(Bsv):
     async def retrieve_employee(self, pk):
         """Вернуть сотрудника"""
         entity = await self.query_employee(pk)
-        extra = {
-            "has_manager": entity.role == "mini_boss" or entity.role == "realtor",
-            "manager": {
-                "value": "",
-                "id": None,
-            }
-        }
-        if entity.manager:
-            extra = {
-                "has_manager": entity.role == "mini_boss" or entity.role == "realtor",
-                "manager": {
-                    "value": get_full_name(entity.manager),
-                    "id": entity.manager.pk,
-                }
-            }
-
+        manager_options = await self.query_manager()
+        extra = {}
         form = [
-            self.get_input("Данные сотрудника", entity.first_name, "Имя", "text", "first_name"),
+            self.get_select("Данные сотрудника", entity.role, "Роль сотрудника", "role", ROLE),
+        ]
+
+        if entity.role == "realtor":
+            form.extend([
+                self.get_select(None, entity.manager_id, "Отдел", "manager", manager_options),
+            ])
+
+        form.extend([
+            self.get_input(None, entity.first_name, "Имя", "text", "first_name"),
             self.get_input(None, entity.last_name, "Фамилия", "text", "last_name"),
             self.get_input(None, phone_number_to_string(entity.phone), "Телефон", "text", "phone"),
-
-        ]
-        if entity.role == "mini_boss" or entity.role == "realtor" or entity.role == "ADMIN":
+        ])
+        if entity.role == "mini_boss" or entity.role == "realtor":
             form.extend([
-                self.get_select("", entity.role, "Роль сотрудника", "role", ROLE),
-                self.get_input(None, entity.has_active, "Активен", "checkbox", "has_active"),
+                self.get_input("Настройки", entity.has_active, "Доступ в CRM", "checkbox", "has_active"),
             ])
         return {
             "type_node": "employee",
@@ -238,11 +249,22 @@ class FormRepository(Bsv):
 
     @sync_to_async
     def query_employee(self, pk):
-        return Employee.objects.filter(pk=pk).select_related('manager').first()
+        return Employee.objects.filter(pk=pk).first()
 
     @sync_to_async
     def query_demand(self, pk):
         return Demand.objects.filter(pk=pk).select_related('customer').first()
+
+    @sync_to_async
+    def query_manager(self):
+        qs = Employee.objects.filter(role="mini_boss")
+        edges = []
+        for entity in list(qs):
+            edges.append({
+                "label": get_full_name(entity),
+                "value": entity.id
+            })
+        return edges
 
     @staticmethod
     def get_input(title, value, label, input_type, name):

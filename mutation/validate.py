@@ -61,7 +61,12 @@ def validate_customer(payload):
 
 def validate_demand(payload):
     type_enum = payload.get("type_enum")
-    price = int_inspect(payload.get("price"), 1000000, "Введите бюджет<br>min 1 000 000")
+    deal = payload.get("deal"),
+    if deal == "bay":
+        price = int_inspect(payload.get("price"), 1000000, "Введите бюджет<br>от 1 000 000")
+    else:
+        price = int_inspect(payload.get("price"), 10000, "Введите бюджет<br>от 10 000")
+
     valid = {
         "type_enum": type_enum,
         "deal": payload.get("deal"),
@@ -89,7 +94,7 @@ async def validate_location(payload):
     base_url = "https://geocode-maps.yandex.ru/1.x"
     apikey = "8e802446-42a3-4c58-9137-da5007e86ae7"
     params = {
-        "geocode": address,
+        "geocode": "г.Сочи " + address,
         "apikey": apikey,
         "format": "json",
         "results": 1

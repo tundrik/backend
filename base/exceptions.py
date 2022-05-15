@@ -5,7 +5,7 @@ from services.telegram.bot import TelegramService
 
 
 async def send_log(log):
-    # asyncio.create_task(TelegramService.send_message(chat_id=MASTER_CHAT_ID, send_text=log))
+    asyncio.create_task(TelegramService.send_message(chat_id=MASTER_CHAT_ID, send_text=log))
     pass
 
 

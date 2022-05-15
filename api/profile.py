@@ -21,6 +21,7 @@ class ViewerApi(Endpoint):
                 'pic': "{}{}.jpeg".format(PIC_BASE, person.pic),
                 'name': get_full_name(person),
                 'phone': phone_number_to_string(person.phone),
+                'role': person.role
             },
         })
 

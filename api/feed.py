@@ -50,9 +50,9 @@ CATEGORY_CIAN = {
 
 OBJECT_AVITO = {
     0: '',
-    1: '',
-    2: '',
-    3: '',
+    1: 'Квартира',
+    2: 'Квартира',
+    3: 'Апартаменты',
     4: 'Дом',
     5: 'Дача',
     6: 'Коттедж',
@@ -87,11 +87,18 @@ RENOVATION_YANDEX = {
 
 
 ROOMS_AVITO = {
-    12: 'Свободная планировка',
+    11: 'Студия',
+    12: 'Своб. планировка',
     1: 1,
     2: 2,
     3: 3,
     4: 4,
+    5: 5,
+    6: 6,
+    7: 7,
+    8: 8,
+    9: 9,
+    10: "10 и более",
 }
 
 ROOMS_YANDEX = {
@@ -121,7 +128,7 @@ class AvitoApi(Endpoint):
             add_filed(ad, 'ManagerName', get_full_name(estate.employee))
             add_filed(ad, 'ContactPhone', phone_number_to_string(estate.employee.phone))
 
-            add_filed(ad, 'Address', "Россия, " + estate.location.address)
+            add_filed(ad, 'Address', estate.location.address)
 
             add_filed(ad, 'Latitude', estate.location.lat)
             add_filed(ad, 'Longitude', estate.location.lng)
@@ -161,7 +168,7 @@ class AvitoApi(Endpoint):
                 add_filed(ad, 'Decoration', 'Чистовая')
 
             if estate.type_enum == RESIDENTIAL:
-                add_filed(ad, 'Status', "Квартира")
+                add_filed(ad, 'Status', OBJECT_AVITO.get(estate.object_type))
                 lift = estate.location.supple.get("has_lift")
                 if lift:
                     passenger_elevator = "1"

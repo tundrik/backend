@@ -20,7 +20,13 @@ class ExploreRepository(Bsv):
         1: '1-комнатная квартира',
         2: '2-комнатная квартира',
         3: '3-комнатная квартира',
-        4: 'Многокомнатная квартира',
+        4: '4-комнатная квартира',
+        5: '5-комнатная квартира',
+        6: '6-комнатная квартира',
+        7: 'Многокомнатная квартира',
+        8: 'Многокомнатная квартира',
+        9: 'Многокомнатная квартира',
+        10: 'Многокомнатная квартира',
     }
     OBJECTS = {
         8: "Поселений (ИЖС)",
@@ -180,7 +186,11 @@ class ExploreRepository(Bsv):
     def define_caption(cls, estate):
         if estate.type_enum == RESIDENTIAL:
             readable_floors = "{}/{} этаж".format(estate.floor, estate.location.floors)
-            return "{}, {}".format(cls.READABLE_ROOMS.get(estate.rooms), readable_floors)
+            if estate.object_type == 3:
+                rooms = "Апартаменты"
+            else:
+                rooms = cls.READABLE_ROOMS.get(estate.rooms)
+            return "{}, {}".format(rooms, readable_floors)
 
         elif estate.type_enum == HOUSE:
             return "{} {} {}".format(

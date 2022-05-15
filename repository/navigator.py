@@ -8,11 +8,16 @@ from base.helpers import (
     readable_price, encode_node_name, seconds_to_text, numeric_declension,
     phone_number_to_string, get_full_name
 )
-from constants import IMAGE_BASE, PIC_BASE, PRESENTATION_BASE
+from constants import IMAGE_BASE, PIC_BASE, PRESENTATION_BASE, DEV
 from domain.models import RESIDENTIAL, HOUSE, GROUND, COMMERCIAL, Estate, Project, Demand, Employee, EstateKitMember
 
 
 class NavigatorRepository(Bsv):
+    readable_role = {
+        "boss": 'Директор',
+        "mini_boss": 'Руководитель',
+        "realtor": 'Отдел',
+    }
     demand_image = {
         RESIDENTIAL: 'https://storage.yandexcloud.net/graph/static/crm/1.png',
         HOUSE: 'https://storage.yandexcloud.net/graph/static/crm/3.png',
@@ -31,7 +36,13 @@ class NavigatorRepository(Bsv):
         1: '1-комнатная квартира',
         2: '2-комнатная квартира',
         3: '3-комнатная квартира',
-        4: 'Многокомнатная квартира',
+        4: '4-комнатная квартира',
+        5: '5-комнатная квартира',
+        6: '6-комнатная квартира',
+        7: 'Многокомнатная квартира',
+        8: 'Многокомнатная квартира',
+        9: 'Многокомнатная квартира',
+        10: 'Многокомнатная квартира',
     }
     OBJECTS = {
         8: "Поселений (ИЖС)",
@@ -202,12 +213,17 @@ class NavigatorRepository(Bsv):
         }
 
     def serialize_employee(self, entity, code_node):
-        print(self.viewer.role)
+        sub = self.readable_role.get(entity.role)
+        if entity.manager:
+            sub = sub + ": " + get_full_name(entity.manager)
+        if not entity.has_active:
+            sub = sub + " • Заблокирован"
         return {
             "node": code_node,
             "node_type": "employee",
-            "has_edit": self.viewer.role == "boss" or self.viewer.role == "ADMIN",
-            'person': self.serialize_person(entity, "Риэлтор")
+            "has_edit": self.viewer.role == "boss" or DEV,
+            'person': self.serialize_person(entity, "Риэлтор"),
+            'sub': sub
         }
 
     @staticmethod
@@ -232,10 +248,14 @@ class NavigatorRepository(Bsv):
     def define_caption(cls, estate):
         if estate.type_enum == RESIDENTIAL:
             readable_floors = "{}/{} этаж".format(estate.floor, estate.location.floors)
-            return "{}, {}".format(cls.READABLE_ROOMS.get(estate.rooms), readable_floors)
+            if estate.object_type == 3:
+                rooms = "Апартаменты"
+            else:
+                rooms = cls.READABLE_ROOMS.get(estate.rooms)
+            return "{}, {}".format(rooms, readable_floors)
 
         elif estate.type_enum == HOUSE:
-            return "{} {} {}".format(
+            return "{}-{} {}".format(
                 estate.location.floors,
                 "этажный дом, c участком ",
                 numeric_declension(estate.square_ground, ['сотка', 'сотки', 'соток'])
@@ -295,7 +315,8 @@ class NavigatorRepository(Bsv):
 
     @sync_to_async
     def query_employee(self, params, path, query):
-        qs = Employee.objects.filter(**params).exclude(role="ADMIN")
+        qs = Employee.objects.filter(**params).exclude(phone=79881607082)\
+            .prefetch_related('manager')
         paginator = CursorPaginator(qs, path=path, query=query)
         entities_orm, cursor = paginator.get_instances()
         return entities_orm, cursor

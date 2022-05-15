@@ -24,7 +24,7 @@ class FeaturesApi(Endpoint):
 class ToggleFeatureApi(Endpoint):
     async def post(self, request: ASGIRequest, code_node=None):
         pk, type_node = decode_node_name(code_node)
-        await Store.toggle_save(self.guid, pk, type_node)
+        await Store.toggle_save(self.viewer.guid, pk, type_node)
         return OrjsonResponse({
             'success': True,
         })

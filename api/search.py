@@ -23,10 +23,42 @@ class SuggestionsApi(Endpoint):
                 "city": "сочи"
             }]
         })
-        async with httpx.AsyncClient() as client:
+        suggestions = []
+        async with httpx.AsyncClient(timeout=None) as client:
             res = await client.post(url, headers=headers, data=data)
-            response_data = orjson.loads(res.content)
-        return OrjsonResponse(response_data)
+            content = orjson.loads(res.content)
+            for item in content.get('suggestions'):
+                print(item)
+
+                data = item.get("data")
+                lat = data.get("geo_lat")
+                lng = data.get("geo_lon")
+                street_type = data.get("street_type_full")
+                if not street_type:
+                    street_type = data.get("settlement_type_full")
+
+                street = data.get("street")
+                if not street:
+                    street = data.get("settlement")
+
+                if data.get("house"):
+                    house = ", дом {}".format(data.get("house"))
+                else:
+                    house = ""
+
+                value = "{} {}{}".format(street_type, street, house)
+
+                data_object = {
+                    "lat": lat,
+                    "lng": lng,
+                    "street_type": street_type,
+                    "street": street,
+                    "house": house,
+                    "value": value
+                }
+                suggestions.append(data_object)
+
+        return OrjsonResponse(suggestions)
 
 
 class ProjectApi(Endpoint):
@@ -39,7 +71,7 @@ class ProjectApi(Endpoint):
                 "value": entity.project_name,
                 "id": entity.id
             })
-        return OrjsonResponse({"suggestions": edges})
+        return OrjsonResponse(edges)
 
     @sync_to_async
     def query_progect(self, query):
@@ -49,19 +81,18 @@ class ProjectApi(Endpoint):
 
 class ManagerApi(Endpoint):
     async def get(self, request: ASGIRequest, **kwargs):
-        query = request.GET.get("g")
-        entities = await self.query_manager(query)
+        entities = await self.query_manager()
         edges = []
         for entity in entities:
             edges.append({
-                "value": get_full_name(entity),
-                "id": entity.id
+                "label": get_full_name(entity),
+                "value": entity.id
             })
-        return OrjsonResponse({"suggestions": edges})
+        return OrjsonResponse(edges)
 
     @sync_to_async
-    def query_manager(self, query):
-        qs = Employee.objects.filter(role="mini_boss", search_full__trigram_word_similar=query)
+    def query_manager(self):
+        qs = Employee.objects.filter(role="mini_boss")
         return list(qs)
 
 

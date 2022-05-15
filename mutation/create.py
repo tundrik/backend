@@ -26,12 +26,12 @@ class CreateInspector(Bsv):
         await self.create_demand(demand, customer)
 
     async def inspect_estate(self, payload, files):
-        customer = validate_customer(payload)
-        estate = validate_estate(payload)
-
         street = payload.get("street")
         if not street:
             raise ValidateError("Введите адрес")
+
+        customer = validate_customer(payload)
+        estate = validate_estate(payload)
 
         images = files.getlist('image')
 

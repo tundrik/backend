@@ -83,7 +83,7 @@ class Location(models.Model):
     address = models.CharField(max_length=128)
     locality = models.CharField(max_length=32)
     district = models.CharField(max_length=32)
-    street = models.CharField(max_length=32)
+    street = models.CharField(max_length=128)
     street_type = models.CharField(max_length=16)
     house = models.CharField(max_length=16)
 

@@ -1,4 +1,8 @@
 DEBUG = True
+IS_WEBHOOK_TELEGRAM = False
+HOST_BACKEND = 'http://localhost:8000'  #'https://backend.liberty-realty.ru'  #
+DOMAIN = "localhost"  #'.liberty-realty.ru'  #
+DEV = True
 
 YANDEX_ACCESS_KEY = 'YCAJEApSwDFNXP03oljRwtIlo'
 YANDEX_SECRET_KEY = 'YCNYZ_qVhimCCnPKE1CGwFr5BjRMmDOQJ__494cC'
@@ -8,11 +12,8 @@ DATABASE_PASSWORD = 'hcwdv2asmk121'
 DATABASE_USER = 'django'
 DATABASE_HOST = '0.0.0.0'
 
-HOST_BACKEND = 'https://backend.liberty-realty.ru'  # 'http://localhost:8000'  #
-DOMAIN = 'crm.liberty-realty.ru'  # "localhost"  #
 TELEGRAM_TOKEN = '5300733567:AAH1HZF4HSU51rPHecadaX_FNPOJtr6ZpAI'
 TELEGRAM_URL = 'https://api.telegram.org/bot5300733567:AAH1HZF4HSU51rPHecadaX_FNPOJtr6ZpAI'
-IS_WEBHOOK_TELEGRAM = True
 
 WEBHOOK_TELEGRAM_HOST = 'https://backend.liberty-realty.ru'
 WEBHOOK_TELEGRAM_PATH = '/webhook/telegram/'

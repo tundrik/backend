@@ -13,6 +13,11 @@ from mutation.validate import validate_phone
 from services.telegram.bot import TelegramService
 from storage.store import Store
 
+message = """
+Не найден телеграм чат, авторизуйтесь у телеграм бота 
+<a href="https://t.me/LibertyRealtyBot" target="_blank">@LibertyRealtyBot</a>
+           """
+
 
 class LoginApi(Endpoint):
     async def delete(self, request: ASGIRequest):
@@ -87,7 +92,7 @@ class LoginApi(Endpoint):
         telegram_chat_id = employee.telegram_chat_id
 
         if telegram_chat_id is None:
-            raise ValidateError("Не найден телеграм чат, авторизуйтесь у телеграм бота @LibertyRealtyBot")
+            raise ValidateError(message)
 
         try:
             await TelegramService.send_message(chat_id=telegram_chat_id, send_text=send_text_view)
