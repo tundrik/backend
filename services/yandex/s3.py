@@ -32,6 +32,12 @@ class YandexUploader:
         await self.upload_image(new_image_300, name=image_name, width="profile")
         return image_name
 
+    async def image_upload(self, file):
+        new_image_420, new_image_1200, image_name = self.preparation_file(file)
+        await self.upload_image(new_image_420, name=image_name, width=420)
+        await self.upload_image(new_image_1200, name=image_name, width=1200)
+        return image_name
+
     async def tasks_executor_upload(self, images: list[InMemoryUploadedFile]):
         cpu_count = os.cpu_count()
         loop = asyncio.get_event_loop()

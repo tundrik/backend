@@ -50,7 +50,7 @@ class AwsSignatureV4:
 
         headers = {
             'Host': host,
-            'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+            'Content-Type': 'image/jpeg',
             'x-amz-date': self.amz_date,
             'x-amz-content-sha256': payload_hash
         }

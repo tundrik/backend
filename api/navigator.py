@@ -15,6 +15,7 @@ REGEX_NAVIGATOR = '(?:(?P<node_type>(project|estate|demand|employee))/)' \
                   '(?:has-yandex-(?P<has_yandex>on)/)?' \
                   '(?:has-cian-(?P<has_cian>on)/)?' \
                   '(?:has-domclick-(?P<has_domclick>on)/)?' \
+                  '(?:has-archive-(?P<has_archive>on)/)?' \
                   '(?:price-min-(?P<price_min>\\d+)/)?' \
                   '(?:price-max-(?P<price_max>\\d+)/)?' \
                   '(?:square-min-(?P<square_min>\\d+)/)?' \
@@ -53,6 +54,9 @@ class NavigatorApi(Endpoint):
 
         params = {}
 
+        if node_type == "estate" or node_type == "demand":
+            params['has_archive'] = False
+
         if search:
             if search.isdigit():
                 params['pk'] = search
@@ -87,6 +91,9 @@ class NavigatorApi(Endpoint):
 
         if kwargs.get("has_domclick"):
             params['has_domclick'] = True
+
+        if kwargs.get("has_archive"):
+            params['has_archive'] = True
 
         if price_min:
             params['price__gte'] = price_min

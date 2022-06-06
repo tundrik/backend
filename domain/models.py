@@ -55,6 +55,8 @@ class Demand(models.Model):
     published = models.PositiveIntegerField()
     ranging = models.PositiveIntegerField()
 
+    has_archive = models.BooleanField(default=False)
+
     employee = models.ForeignKey(Employee, related_name='+', on_delete=models.RESTRICT)
     customer = models.ForeignKey(Customer, related_name='+', on_delete=models.RESTRICT)
 
@@ -84,7 +86,6 @@ class Location(models.Model):
     locality = models.CharField(max_length=32)
     district = models.CharField(max_length=32)
     street = models.CharField(max_length=128)
-    street_type = models.CharField(max_length=16)
     house = models.CharField(max_length=16)
 
     lat = models.CharField(max_length=14)
@@ -144,6 +145,7 @@ class Estate(models.Model):
     """
     supple = models.JSONField(default=dict)
 
+    has_archive = models.BooleanField(default=False)
     has_site = models.BooleanField(default=True)
     has_avito = models.BooleanField(default=False)
     has_yandex = models.BooleanField(default=False)

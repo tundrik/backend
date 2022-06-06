@@ -1,4 +1,5 @@
 from asgiref.sync import sync_to_async
+from django.db.models import Prefetch
 
 from base.bsv import Bsv
 from base.exceptions import NoData
@@ -9,7 +10,8 @@ from base.helpers import (
     phone_number_to_string, get_full_name, decode_node_name
 )
 from constants import IMAGE_BASE, PIC_BASE, PRESENTATION_BASE
-from domain.models import RESIDENTIAL, HOUSE, GROUND, COMMERCIAL, Estate, Project
+from domain.models import RESIDENTIAL, HOUSE, GROUND, COMMERCIAL, Estate, Project, EstateMedia, ProjectMedia, \
+    EstateKitMember
 from storage.store import Store
 
 
@@ -42,6 +44,63 @@ class ExploreRepository(Bsv):
         18: "Автосервис",
         19: "Здание",
     }
+
+    async def retrieve_kit_members(self, *, pk):
+        """Вернуть коллекцию участников подборки (estate)"""
+        entities = await self.get_kit_members(pk)
+        if not entities:
+            raise NoData()
+        edges, edges_ids = {}, []
+        for entity in entities:
+            estate = entity.estate
+            kit = entity.kit
+            code_node = encode_node_name(estate.id, "estate")
+            edges_ids.append(code_node)
+            entity_dict = self.serialize_kit(estate, code_node, kit)
+            edges[code_node] = entity_dict
+
+        return {
+            'pageInfo': {
+                'cursor': None,
+                'ids': edges_ids,
+                'node_type': "estate"
+            },
+            'edges': edges,
+        }
+
+    def serialize_kit(self, entity, code_node, kit):
+        if entity.type_enum == GROUND:
+            square = numeric_declension(entity.square_ground, ['сотка', 'сотки', 'соток'])
+            price_square = "{}{}".format(readable_price(entity.price_square_ground), "/сотка")
+        else:
+            square = "{} {}".format(entity.square, "м²")
+            price_square = "{}{}".format(readable_price(entity.price_square), "/м²")
+
+        present = {
+            'price': readable_price(entity.price),
+            'priceSquare': price_square,
+            'square': square,
+        }
+        published = seconds_to_text(entity.published)
+        person = self.serialize_person(kit.employee, "Риэлтор")
+
+        return {
+            "node": code_node,
+            "node_type": "estate",
+            "person": person,
+            "present": present,
+            "mediaImages": self.serialize_media_images(entity.media.all()),
+            "caption": self.define_caption(entity),
+            "comment": entity.comment,
+            "address": self.define_address(entity.location),
+            "suple": entity.location.supple,
+            "published": published,
+            "pk": "ID: " + str(entity.pk),
+            "lat": entity.location.lat,
+            "lng": entity.location.lng,
+            'savedByViewer': False,
+            'has_kit': True,
+        }
 
     async def retrive_node(self, *, code_node):
         pk, type_node = decode_node_name(code_node)
@@ -129,6 +188,7 @@ class ExploreRepository(Bsv):
             "published": seconds_to_text(entity.published),
             "pk": "ID: " + str(entity.pk),
             'savedByViewer': bool(str(entity.id) in set_saved),
+            'has_kit': False,
         }
 
     def serialize_estate(self, entity, code_node, set_saved):
@@ -162,6 +222,7 @@ class ExploreRepository(Bsv):
             "lat": entity.location.lat,
             "lng": entity.location.lng,
             'savedByViewer': bool(str(entity.id) in set_saved),
+            'has_kit': False,
         }
 
     @staticmethod
@@ -175,11 +236,17 @@ class ExploreRepository(Bsv):
 
     @staticmethod
     def define_address(location):
-        address = location.street_type + " " + location.street
+        address = ""
         if location.district:
-            address = address + ", " + location.district
+            address = location.district
         elif location.locality:
-            address = address + ", " + location.locality
+            address = location.locality
+
+        if location.street:
+            address = address + ", " + location.street
+
+        if location.house:
+            address = address + ", " + location.house
         return address
 
     @classmethod
@@ -223,8 +290,9 @@ class ExploreRepository(Bsv):
 
     @sync_to_async
     def query_project(self, params, path, query):
+        gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
         qs = Project.objects.filter(**params) \
-            .prefetch_related('media') \
+            .prefetch_related(gs_media) \
             .prefetch_related('location') \
             .prefetch_related('employee')
         paginator = CursorPaginator(qs, path=path, query=query)
@@ -233,8 +301,9 @@ class ExploreRepository(Bsv):
 
     @sync_to_async
     def query_estate(self, params, path, query):
-        qs = Estate.objects.filter(has_site=True, **params) \
-            .prefetch_related('media') \
+        gs_media = Prefetch('media', queryset=EstateMedia.objects.order_by('ranging'))
+        qs = Estate.objects.filter(has_archive=False, has_site=True, **params) \
+            .prefetch_related(gs_media) \
             .prefetch_related('location') \
             .prefetch_related('employee')
         paginator = CursorPaginator(qs, path=path, query=query)
@@ -243,30 +312,43 @@ class ExploreRepository(Bsv):
 
     @sync_to_async
     def query_estate_node(self, pk):
-        return Estate.objects.filter(has_site=True, pk=pk) \
-            .prefetch_related('media') \
+        gs_media = Prefetch('media', queryset=EstateMedia.objects.order_by('ranging'))
+        return Estate.objects.filter(has_archive=False, has_site=True, pk=pk) \
+            .prefetch_related(gs_media) \
             .prefetch_related('location') \
             .prefetch_related('employee').first()
 
     @sync_to_async
     def query_project_node(self, pk):
+        gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
         return Project.objects.filter(pk=pk) \
-            .prefetch_related('media') \
+            .prefetch_related(gs_media) \
             .prefetch_related('location') \
             .prefetch_related('employee').first()
 
     @sync_to_async
     def query_favorites_estate(self, ids):
+        gs_media = Prefetch('media', queryset=EstateMedia.objects.order_by('ranging'))
         qs = Estate.objects.filter(id__in=ids) \
-            .prefetch_related('media') \
+            .prefetch_related(gs_media) \
             .prefetch_related('location') \
             .prefetch_related('employee')
         return list(qs)
 
     @sync_to_async
     def query_favorites_project(self, ids):
+        gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
         qs = Project.objects.filter(id__in=ids) \
-            .prefetch_related('media') \
+            .prefetch_related(gs_media) \
             .prefetch_related('location') \
             .prefetch_related('employee')
         return list(qs)
+
+    @sync_to_async
+    def get_kit_members(self, pk):
+        gs_media = Prefetch('estate__media', queryset=EstateMedia.objects.order_by('ranging'))
+        gs = EstateKitMember.objects.filter(kit_id=pk) \
+            .prefetch_related('kit__employee') \
+            .prefetch_related(gs_media) \
+            .prefetch_related('estate__location')
+        return list(gs)

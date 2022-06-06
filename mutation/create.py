@@ -12,65 +12,56 @@ from mutation.validate import (
     validate_customer, validate_location,
     validate_estate, validate_project
 )
-from services.yandex.s3 import YandexUploader
 
 
 class CreateInspector(Bsv):
-    async def add_node(self, *, type_node, pyload, files):
+    async def add_node(self, *, type_node, pyload):
         handler = getattr(self, 'inspect_' + type_node)
-        return await handler(pyload, files)
+        return await handler(pyload)
 
-    async def inspect_demand(self, payload, files):
+    async def inspect_demand(self, payload):
         customer = validate_customer(payload)
         demand = validate_demand(payload)
         await self.create_demand(demand, customer)
 
-    async def inspect_estate(self, payload, files):
-        street = payload.get("street")
-        if not street:
+    async def inspect_estate(self, payload):
+        address = payload.get("address")
+        if not address:
             raise ValidateError("Введите адрес")
+
+        images_names = payload.getlist('files')
+
+        if len(images_names) < 4:
+            raise ValidateError("Не менее 4 фотографий")
 
         customer = validate_customer(payload)
         estate = validate_estate(payload)
 
-        images = files.getlist('image')
-
-        if len(images) < 4:
-            raise ValidateError("Не менее 4 фотографий")
-
         location = await validate_location(payload)
-
-        async with YandexUploader() as uploader:
-            images_names = await uploader.tasks_executor_upload(images)
 
         await self.create_estate(estate, customer, location, images_names)
 
-    async def inspect_project(self, payload, files):
+    async def inspect_project(self, payload):
+        print(payload)
         project = validate_project(payload)
-        street = payload.get("street")
-        if not street:
+        address = payload.get("address")
+        if not address:
             raise ValidateError("Введите адрес")
 
-        images = files.getlist('image')
+        images_names = payload.getlist('files')
 
-        if len(images) < 3:
+        if len(images_names) < 3:
             raise ValidateError("Не менее 3 фотографий")
 
         location = await validate_location(payload)
 
-        async with YandexUploader() as uploader:
-            images_names = await uploader.tasks_executor_upload(images)
-
         await self.create_project(project, location, images_names)
 
-    async def inspect_employee(self, payload, files):
-        image = files.get('image')
+    async def inspect_employee(self, payload):
         valid = validate_employee(payload)
-
-        if image:
-            async with YandexUploader() as uploader:
-                valid["pic"] = await uploader.profile_upload(image)
-
+        pic = payload.get("files")
+        if pic:
+            valid["pic"] = pic
         await self.create_employee(valid)
 
     @sync_to_async
@@ -86,8 +77,9 @@ class CreateInspector(Bsv):
     def create_demand(self, demand, customer):
         db_customer = Customer.objects.filter(phone=customer.get("phone")).first()
         if db_customer:
-            db_customer.first_name = customer.get("first_name")
-            db_customer.save()
+            if len(db_customer.first_name) < len(customer.get("first_name")):
+                db_customer.first_name = customer.get("first_name")
+                db_customer.save()
         else:
             db_customer = Customer.objects.create(
                 guid=generate_uuid(),
@@ -107,8 +99,9 @@ class CreateInspector(Bsv):
     def create_estate(self, estate, customer, location, images_names):
         db_customer = Customer.objects.filter(phone=customer.get("phone")).first()
         if db_customer:
-            db_customer.first_name = customer.get("first_name")
-            db_customer.save()
+            if len(db_customer.first_name) < len(customer.get("first_name")):
+                db_customer.first_name = customer.get("first_name")
+                db_customer.save()
         else:
             db_customer = Customer.objects.create(
                 guid=generate_uuid(),
@@ -117,20 +110,22 @@ class CreateInspector(Bsv):
             )
 
         db_location = Location.objects.create(**location)
-        db_estate = Estate.objects.create(
-            employee_id=self.viewer.pk,
-            customer=db_customer,
-            location=db_location,
-            ranging=int(time.time()),
-            published=int(time.time()),
-            **estate
-        )
-        for index, name in enumerate(images_names):
-            EstateMedia.objects.create(
-                estate=db_estate,
-                link=name,
-                ranging=index
+        for item in range(30):
+            db_estate = Estate.objects.create(
+                employee_id=self.viewer.pk,
+                customer=db_customer,
+                location=db_location,
+                ranging=int(time.time()),
+                published=int(time.time()),
+                **estate
             )
+            for index, name in enumerate(images_names):
+                if name:
+                    EstateMedia.objects.create(
+                        estate=db_estate,
+                        link=name,
+                        ranging=index
+                    )
 
     @sync_to_async
     @transaction.atomic
@@ -150,8 +145,9 @@ class CreateInspector(Bsv):
             **project
         )
         for index, name in enumerate(images_names):
-            ProjectMedia.objects.create(
-                project=db_project,
-                link=name,
-                ranging=index
-            )
+            if name:
+                ProjectMedia.objects.create(
+                    project=db_project,
+                    link=name,
+                    ranging=index
+                )

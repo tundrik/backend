@@ -19,7 +19,7 @@ def add_filed(ad, filed, text):
 
 @sync_to_async
 def query_estate(params):
-    qs = Estate.objects.filter(**params) \
+    qs = Estate.objects.filter(has_archive=False, **params) \
         .prefetch_related('media') \
         .prefetch_related('location') \
         .prefetch_related('employee')

@@ -4,6 +4,7 @@ from django.core.handlers.asgi import ASGIRequest
 
 from base.endpoint import Endpoint
 from base.exceptions import NoData
+from base.helpers import decode_node_name
 from base.response import OrjsonResponse, no_data
 from repository.explore import ExploreRepository
 
@@ -21,7 +22,6 @@ REGEX_EXPLORE = '(?:(?P<node_type>(project|estate))/)' \
 class ExploreApi(Endpoint):
     async def get(self, request: ASGIRequest, **kwargs):
         """Получить коллекцию (project|estate)"""
-        await asyncio.sleep(0)
         repository = ExploreRepository(viewer=self.viewer)
         node_type = kwargs.get('node_type')
         query = request.GET.copy()
@@ -98,3 +98,15 @@ class NodeApi(Endpoint):
         repository = ExploreRepository(viewer=self.viewer)
         response_data = await repository.retrive_node(code_node=code_node)
         return OrjsonResponse(response_data)
+
+
+class SiteKitApi(Endpoint):
+    async def get(self, request: ASGIRequest, code_node=None):
+        """Получить коллекцию подборку"""
+        pk, type_node = decode_node_name(code_node)
+        repository = ExploreRepository(viewer=self.viewer)
+        try:
+            response_data = await repository.retrieve_kit_members(pk=pk)
+            return OrjsonResponse(response_data)
+        except NoData:
+            return no_data(request)

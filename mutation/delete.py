@@ -4,7 +4,7 @@ from django.db import IntegrityError
 from base.bsv import Bsv
 from base.exceptions import AccessError
 from base.helpers import decode_node_name
-from domain.models import Demand, Customer, Project, Estate, EstateMedia, ProjectMedia, EstateKit
+from domain.models import Demand, Customer, Project, Estate, EstateMedia, ProjectMedia, EstateKit, EstateKitMember
 from services.yandex.s3 import YandexUploader
 
 
@@ -30,15 +30,11 @@ class DeleteInspector(Bsv):
         demand = Demand.objects.get(pk=pk)
         if self.viewer.pk != demand.employee_id:
             raise AccessError()
-        customer = Customer.objects.get(pk=demand.customer_id)
-        demand.delete()
-        try:
-            customer.delete()
-        except IntegrityError as e:
-            print("ProtectedError", e)
+
+        demand.has_archive = True
+        demand.save()
 
     async def delete_estate(self, pk):
-        await self.delete_images(await self.query_estate_images(pk))
         await self.delete_db_estate(pk)
 
     async def delete_project(self, pk):
@@ -50,12 +46,10 @@ class DeleteInspector(Bsv):
         estate = Estate.objects.get(pk=pk)
         if self.viewer.pk != estate.employee_id:
             raise AccessError()
-        estate.delete()
-        customer = Customer.objects.get(pk=estate.customer_id)
-        try:
-            customer.delete()
-        except IntegrityError as e:
-            print("ProtectedError", e)
+
+        estate.has_archive = True
+        estate.save()
+        EstateKitMember.objects.filter(estate_id=pk).delete()
 
     @sync_to_async
     def delete_db_project(self, pk):

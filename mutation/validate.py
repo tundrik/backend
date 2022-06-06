@@ -31,6 +31,7 @@ def validate_phone(phone):
 
 
 def validate_employee(payload):
+    print(payload)
     first_name = len_inspect(payload.get("first_name"), 3, "Введите имя")
     last_name = len_inspect(payload.get("last_name"), 3, "Введите фамилию")
     phone = validate_phone(payload.get("phone"))
@@ -94,7 +95,7 @@ async def validate_location(payload):
     base_url = "https://geocode-maps.yandex.ru/1.x"
     apikey = "8e802446-42a3-4c58-9137-da5007e86ae7"
     params = {
-        "geocode": "г.Сочи " + address,
+        "geocode": "город Сочи " + address,
         "apikey": apikey,
         "format": "json",
         "results": 1
@@ -102,11 +103,6 @@ async def validate_location(payload):
 
     valid = {
         "address": address,
-        "street": payload.get('street'),
-        "street_type": payload.get('street_type'),
-        "house": payload.get('house'),
-        "lat": payload.get('lat'),
-        "lng": payload.get('lng'),
     }
 
     async with httpx.AsyncClient(timeout=None) as client:
@@ -114,7 +110,12 @@ async def validate_location(payload):
         parsed = orjson.loads(response.text)
 
     feature_members = parsed["response"]["GeoObjectCollection"]["featureMember"]
+
+    if not feature_members:
+        raise ValidateError("Некорректный адрес")
+
     if feature_members:
+        print(feature_members)
         geo_object = feature_members[0]["GeoObject"]
         full_address = geo_object["metaDataProperty"]["GeocoderMetaData"]["text"]
         valid["address"] = full_address
@@ -123,8 +124,16 @@ async def validate_location(payload):
         valid["lng"] = point[1]
         components = geo_object["metaDataProperty"]["GeocoderMetaData"]["Address"]["Components"]
         for component in components:
+            print(component)
+            if component.get("kind") == "street":
+                valid["street"] = component.get("name")
+
+            if component.get("kind") == "house":
+                valid["house"] = component.get("name")
+
             if component.get("kind") == "district":
                 valid["district"] = component.get("name")
+
             if component.get("kind") == "locality":
                 valid["locality"] = component.get("name")
 
@@ -157,14 +166,14 @@ def validate_estate(payload):
     price = int_inspect(payload.get("price"), 1000000, "Введите цену")
     comment_len = len(payload.get("comment"))
     comment = len_inspect(
-        payload.get("comment"), 200,
-        f"Описание - требуется еще {200 - comment_len} символов"
+        payload.get("comment"), 50,
+        f"Описание - требуется еще {50 - comment_len} символов"
     ),
-
+    print(payload.get("comment"))
     valid = {
         "type_enum": type_enum,
         "price": price,
-        "comment": comment,
+        "comment": payload.get("comment"),
         "object_type": payload.get('object_type'),
         "has_site": bool(payload.get('has_site')),
         "has_avito": bool(payload.get('has_avito')),

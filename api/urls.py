@@ -1,11 +1,11 @@
 from django.urls import path, include, re_path
 
-from api.explore import REGEX_EXPLORE, ExploreApi, NodeApi, FavoriteApi
+from api.explore import REGEX_EXPLORE, ExploreApi, NodeApi, FavoriteApi, SiteKitApi
 from api.features import FeaturesApi, ToggleFeatureApi
 from api.feed import AvitoApi, YandexApi, CianApi
 from api.login import LoginApi
-from api.mutate import AddApi, UpdateApi, DeleteApi
-from api.search import SuggestionsApi, ProjectApi, TestApi, ManagerApi
+from api.mutate import AddApi, UpdateApi, DeleteApi, UploadApi, MediaApi
+from api.search import SuggestionsApi, ProjectApi, TestApi, ManagerApi, MirabaseApi
 from api.profile import ViewerApi, KitApi, KitMembersApi, SavedApi, DeleteSavedApi
 from api.navigator import REGEX_NAVIGATOR, NavigatorApi
 from base.response import no_data, forbidden, bad_request
@@ -25,6 +25,8 @@ profile_url = [
 internal_url = [
     re_path('navigator/' + REGEX_NAVIGATOR, NavigatorApi.dispatch),
     path('add/<str:type_node>/', AddApi.dispatch),
+    path('upload/<str:type_node>/', UploadApi.dispatch),
+    path('media/<str:type_node>/', MediaApi.dispatch),
     path('mutate/<str:code_node>/', UpdateApi.dispatch),
     path('delete/<str:code_node>/', DeleteApi.dispatch),
     path('search/suggestions/', SuggestionsApi.dispatch),
@@ -43,6 +45,7 @@ site_url = [
     re_path('explore/' + REGEX_EXPLORE, ExploreApi.dispatch),
     path('favorite/<str:node_type>/', FavoriteApi.dispatch),
     path('node/<str:code_node>/', NodeApi.dispatch),
+    path('kit/<str:code_node>/', SiteKitApi.dispatch),
     path('features/', FeaturesApi.dispatch),
     path('features/favorite/<str:code_node>/', ToggleFeatureApi.dispatch),
 ]
@@ -54,4 +57,5 @@ urlpatterns = [
     path('login/', LoginApi.dispatch),
     path('feed/', include(feed_url)),
     path('test/', TestApi.dispatch),
+    path('mirabase/', MirabaseApi.dispatch),
 ]

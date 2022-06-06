@@ -128,3 +128,16 @@ class TestApi(Endpoint):
                     valid["locality"] = component.get("name")
         return OrjsonResponse({"suggestions": address_2, "re": feature_members})
 
+
+class MirabaseApi(Endpoint):
+    async def get(self, request: ASGIRequest, **kwargs):
+        print(self)
+        base_url = "http://api.mirabase.ru/ap2/External/primary/list"
+        data = {'login': "liberty", 'password': 'Z3Bk'}
+        async with httpx.AsyncClient(timeout=None) as client:
+            response = await client.post(base_url, data=data)
+            parsed = orjson.loads(response.text)
+            print(response)
+
+        return OrjsonResponse({"parsed": parsed})
+

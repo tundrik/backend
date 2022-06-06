@@ -1,8 +1,11 @@
 from asgiref.sync import sync_to_async
+from django.db.models import Prefetch
 
 from base.bsv import Bsv
 from base.helpers import decode_node_name, phone_number_to_string, get_full_name
-from domain.models import Demand, Employee, Project, Estate, GROUND, HOUSE, RESIDENTIAL, COMMERCIAL
+from constants import IMAGE_BASE, PRESENTATION_BASE, PIC_BASE
+from domain.models import Demand, Employee, Project, Estate, GROUND, HOUSE, RESIDENTIAL, COMMERCIAL, EstateMedia, \
+    ProjectMedia
 
 ROLE = [
     {"value": "realtor", "label": "Риэлтор"},
@@ -40,7 +43,6 @@ ROOMS = [
     {"value": "12", "label": "Свободная планировка"},
     {"value": "11", "label": "Студия"},
 ]
-
 
 RESIDENTIAL_OBJECTS = [
     {"value": 1, "label": "Жилое помещение"},
@@ -102,9 +104,13 @@ class FormRepository(Bsv):
     async def retrieve_project(self, pk):
         """Вернуть комплекс"""
         entity = await self.query_project(pk)
+        extra = {
+            "type_enum": entity.type_enum,
+            "mediaImages": self.serialize_media_images(entity.media.all())
+        }
         return {
             "type_node": "project",
-            "type_enum": entity.type_enum,
+            "extra": extra,
             "form": [
                 self.get_input("Данные комплекса", entity.price, "Минимальная цена", "number", "price"),
                 self.get_input(None, entity.price_square, "Минимальная цена за м²", "number", "price_square"),
@@ -117,10 +123,12 @@ class FormRepository(Bsv):
         """Вернуть объект"""
         entity = await self.query_estate(pk)
         type_enum = entity.type_enum
-        form = [
-            self.get_input("Данные собственника", entity.customer.first_name, "Имя", "text", "first_name"),
-            self.get_input(None, phone_number_to_string(entity.customer.phone), "Телефон", "text", "phone"),
-        ]
+        extra = {
+            "type_enum": type_enum,
+            "customer_pk": entity.customer.pk,
+            "mediaImages": self.serialize_media_images(entity.media.all())
+        }
+        form = []
 
         if type_enum == RESIDENTIAL:
             form.extend([
@@ -162,6 +170,12 @@ class FormRepository(Bsv):
             form.extend([
                 self.get_select(None, entity.supple.get("status"), "Статус участка", "status", STATUS),
             ])
+
+        customer = [
+            self.get_input("Данные собственника", entity.customer.first_name, "Имя", "text", "first_name"),
+            self.get_input(None, phone_number_to_string(entity.customer.phone), "Телефон", "text", "phone"),
+        ]
+
         settings = [
             self.get_input("Выгрузка", entity.has_site, "Показывать на сайте", "checkbox", "has_site"),
             self.get_input(None, entity.has_avito, "Avito", "checkbox", "has_avito"),
@@ -171,12 +185,11 @@ class FormRepository(Bsv):
         ]
         return {
             "type_node": "estate",
-            "extra": {
-                "type_enum": type_enum,
-            },
+            "extra": extra,
             "form": [
                 *form,
                 *settings,
+                *customer,
                 self.get_input("Описание объекта", entity.comment, "", "textarea", "comment"),
             ],
         }
@@ -185,25 +198,24 @@ class FormRepository(Bsv):
         """Вернуть сотрудника"""
         entity = await self.query_employee(pk)
         manager_options = await self.query_manager()
-        extra = {}
-        form = [
-            self.get_select("Данные сотрудника", entity.role, "Роль сотрудника", "role", ROLE),
-        ]
+        extra = {
+            "mediaImages": []
+        }
+        if not entity.pic == 'User':
+            extra = {
+                "mediaImages": [{
+                    'source': entity.pic,
+                    "options": {"type": "local"},
+                }]
+            }
 
-        if entity.role == "realtor":
-            form.extend([
-                self.get_select(None, entity.manager_id, "Отдел", "manager", manager_options),
-            ])
-
+        form = []
         form.extend([
-            self.get_input(None, entity.first_name, "Имя", "text", "first_name"),
+            self.get_input("Данные сотрудника", entity.first_name, "Имя", "text", "first_name"),
             self.get_input(None, entity.last_name, "Фамилия", "text", "last_name"),
             self.get_input(None, phone_number_to_string(entity.phone), "Телефон", "text", "phone"),
+            self.get_input("Настройки", entity.has_active, "Доступ в CRM", "checkbox", "has_active"),
         ])
-        if entity.role == "mini_boss" or entity.role == "realtor":
-            form.extend([
-                self.get_input("Настройки", entity.has_active, "Доступ в CRM", "checkbox", "has_active"),
-            ])
         return {
             "type_node": "employee",
             "extra": extra,
@@ -215,8 +227,6 @@ class FormRepository(Bsv):
         entity = await self.query_demand(pk)
         type_enum = entity.type_enum
         form = [
-            self.get_input("Данные клиента", entity.customer.first_name, "Имя", "text", "first_name"),
-            self.get_input(None, phone_number_to_string(entity.customer.phone), "Телефон", "text", "phone"),
             self.get_select("Данные заявки", entity.deal, "Тип сделки", "deal", DEAL),
             self.get_input(None, entity.price, "Бюджет", "number", "price"),
         ]
@@ -228,10 +238,15 @@ class FormRepository(Bsv):
             form.extend([
                 self.get_input(None, entity.square_ground, "Желаемая площадь участка", "number", "square_ground"),
             ])
+        form.extend([
+            self.get_input("Данные клиента", entity.customer.first_name, "Имя", "text", "first_name"),
+            self.get_input(None, phone_number_to_string(entity.customer.phone), "Телефон", "text", "phone"),
+        ])
         return {
             "type_node": "demand",
             "extra": {
                 "type_enum": type_enum,
+                "customer_pk": entity.customer.pk,
             },
             "form": [
                 *form,
@@ -239,13 +254,27 @@ class FormRepository(Bsv):
             ],
         }
 
+    @staticmethod
+    def serialize_media_images(media_images):
+        media_images_result = []
+        for media_image in media_images:
+            media_image = {
+                'source': media_image.link,
+                "options": {"type": "local"},
+            }
+            media_images_result.append(media_image)
+
+        return media_images_result
+
     @sync_to_async
     def query_project(self, pk):
-        return Project.objects.get(pk=pk)
+        gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
+        return Project.objects.filter(pk=pk).prefetch_related(gs_media).first()
 
     @sync_to_async
     def query_estate(self, pk):
-        return Estate.objects.filter(pk=pk).select_related('customer').first()
+        gs_media = Prefetch('media', queryset=EstateMedia.objects.order_by('ranging'))
+        return Estate.objects.filter(pk=pk).prefetch_related(gs_media).select_related('customer').first()
 
     @sync_to_async
     def query_employee(self, pk):

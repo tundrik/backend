@@ -1,4 +1,5 @@
 from asgiref.sync import sync_to_async
+from django.db.models import Prefetch
 
 from base.bsv import Bsv
 from base.exceptions import NoData
@@ -9,7 +10,8 @@ from base.helpers import (
     phone_number_to_string, get_full_name
 )
 from constants import IMAGE_BASE, PIC_BASE, PRESENTATION_BASE, DEV
-from domain.models import RESIDENTIAL, HOUSE, GROUND, COMMERCIAL, Estate, Project, Demand, Employee, EstateKitMember
+from domain.models import RESIDENTIAL, HOUSE, GROUND, COMMERCIAL, Estate, Project, Demand, Employee, EstateKitMember, \
+    EstateMedia, ProjectMedia
 
 
 class NavigatorRepository(Bsv):
@@ -221,9 +223,9 @@ class NavigatorRepository(Bsv):
         return {
             "node": code_node,
             "node_type": "employee",
-            "has_edit": self.viewer.role == "boss" or DEV,
+            "has_edit": self.viewer.role == "boss",
             'person': self.serialize_person(entity, "Риэлтор"),
-            'sub': sub
+            'sub': phone_number_to_string(entity.phone)
         }
 
     @staticmethod
@@ -237,11 +239,17 @@ class NavigatorRepository(Bsv):
 
     @staticmethod
     def define_address(location):
-        address = location.street_type + " " + location.street
+        address = ""
         if location.district:
-            address = address + ", " + location.district
+            address = location.district
         elif location.locality:
-            address = address + ", " + location.locality
+            address = location.locality
+
+        if location.street:
+            address = address + ", " + location.street
+
+        if location.house:
+            address = address + ", " + location.house
         return address
 
     @classmethod
@@ -285,8 +293,9 @@ class NavigatorRepository(Bsv):
 
     @sync_to_async
     def query_project(self, params, path, query):
+        gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
         qs = Project.objects.filter(**params) \
-            .prefetch_related('media') \
+            .prefetch_related(gs_media) \
             .prefetch_related('location') \
             .prefetch_related('employee')
         paginator = CursorPaginator(qs, path=path, query=query)
@@ -295,8 +304,9 @@ class NavigatorRepository(Bsv):
 
     @sync_to_async
     def query_estate(self, params, path, query):
+        gs_media = Prefetch('media', queryset=EstateMedia.objects.order_by('ranging'))
         qs = Estate.objects.filter(**params) \
-            .prefetch_related('media') \
+            .prefetch_related(gs_media) \
             .prefetch_related('location') \
             .prefetch_related('customer') \
             .prefetch_related('employee')
@@ -323,8 +333,9 @@ class NavigatorRepository(Bsv):
 
     @sync_to_async
     def get_kit_members(self, pk):
+        gs_media = Prefetch('estate__media', queryset=EstateMedia.objects.order_by('ranging'))
         gs = EstateKitMember.objects.filter(kit_id=pk)\
-            .prefetch_related('estate__media') \
+            .prefetch_related(gs_media) \
             .prefetch_related('estate__location') \
             .prefetch_related('estate__customer') \
             .prefetch_related('estate__employee')
