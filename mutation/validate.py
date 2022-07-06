@@ -120,8 +120,8 @@ async def validate_location(payload):
         full_address = geo_object["metaDataProperty"]["GeocoderMetaData"]["text"]
         valid["address"] = full_address
         point = geo_object["Point"]["pos"].split()
-        valid["lat"] = point[0]
-        valid["lng"] = point[1]
+        valid["lat"] = point[1]
+        valid["lng"] = point[0]
         components = geo_object["metaDataProperty"]["GeocoderMetaData"]["Address"]["Components"]
         for component in components:
             print(component)

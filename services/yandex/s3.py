@@ -97,6 +97,7 @@ class YandexUploader:
         url = f'{self.endpoint}/{width}/{name}.jpeg'
         headers = self.aws_auth(method='PUT', url=url, payload=buffer_bytes)
         response = await self.client.request('PUT', url, content=buffer_bytes, headers=headers)
+        print(response)
         if response.status_code == 200:
             return response.status_code
         return response.status_code

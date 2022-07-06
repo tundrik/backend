@@ -128,7 +128,7 @@ class NavigatorRepository(Bsv):
             "mediaImages": self.serialize_media_images(entity.media.all()),
             "present": present,
             "comment": entity.comment,
-            "caption": "Комплекс " + entity.project_name,
+            "caption": entity.project_name,
             "address": self.define_address(entity.location),
             "published": seconds_to_text(entity.published),
             "pk": "ID: " + str(entity.pk)
@@ -293,6 +293,7 @@ class NavigatorRepository(Bsv):
 
     @sync_to_async
     def query_project(self, params, path, query):
+        print(Project.objects.count())
         gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
         qs = Project.objects.filter(**params) \
             .prefetch_related(gs_media) \
@@ -339,4 +340,5 @@ class NavigatorRepository(Bsv):
             .prefetch_related('estate__location') \
             .prefetch_related('estate__customer') \
             .prefetch_related('estate__employee')
+
         return list(gs)

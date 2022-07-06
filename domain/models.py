@@ -82,9 +82,9 @@ class Location(models.Model):
             has_sewerage: bool - канализация  
     """
     supple = models.JSONField(default=dict)
-    address = models.CharField(max_length=128)
-    locality = models.CharField(max_length=32)
-    district = models.CharField(max_length=32)
+    address = models.CharField(max_length=256)
+    locality = models.CharField(max_length=64)
+    district = models.CharField(max_length=64)
     street = models.CharField(max_length=128)
     house = models.CharField(max_length=16)
 

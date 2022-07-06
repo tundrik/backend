@@ -1,12 +1,19 @@
 import httpx
+import time
 import orjson
+from io import BytesIO
 from asgiref.sync import sync_to_async
 from django.core.handlers.asgi import ASGIRequest
+from bs4 import BeautifulSoup
+from xml.etree.ElementTree import Element, fromstring
+
+from django.db.models import Prefetch
 
 from base.endpoint import Endpoint
 from base.helpers import get_full_name
 from base.response import OrjsonResponse
-from domain.models import Project, Employee
+from domain.models import Project, Employee, Location, ProjectMedia
+from services.yandex.s3 import YandexUploader
 
 
 class SuggestionsApi(Endpoint):
@@ -130,14 +137,97 @@ class TestApi(Endpoint):
 
 
 class MirabaseApi(Endpoint):
+    @sync_to_async
+    def create_project(self, project):
+        location = project.get("location")
+        images_names = project.get("images_names")
+        project = project.get("project")
+
+        db_location = Location.objects.create(**location)
+        db_project = Project.objects.create(
+            location=db_location,
+            employee_id=2,
+            published=int(time.time()),
+            ranging=int(time.time()),
+            **project
+        )
+        for index, name in enumerate(images_names):
+            if name:
+                ProjectMedia.objects.create(
+                    project=db_project,
+                    link=name,
+                    ranging=index
+                )
+
+    @sync_to_async
+    def query_manager(self):
+        print(Project.objects.count())
+        gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
+        qs = Project.objects.all()[:5] \
+            .prefetch_related(gs_media) \
+            .prefetch_related('location') \
+            .prefetch_related('employee')
+        return list(qs)
+
     async def get(self, request: ASGIRequest, **kwargs):
-        print(self)
-        base_url = "http://api.mirabase.ru/ap2/External/primary/list"
-        data = {'login': "liberty", 'password': 'Z3Bk'}
+        projects = []
+        responses = []
+        entities = await self.query_manager()
+        for entity in entities:
+            location = entity.location
+            media_images = []
+            media = entity.media.all()
+            for med in media:
+                media_images.append(med.link)
+
+            project = {
+                "project": {
+                    "project_name": entity.project_name,
+                    "type_enum": entity.type_enum,
+                    "price": entity.price,
+                    "square": entity.square,
+                    "price_square": entity.price_square,
+                    "mirabase_id": entity.mirabase_id,
+                },
+                "location": {
+                    "address": location.address,
+                    "locality": location.locality,
+                    "district": location.district,
+                    "street": location.street,
+                    "house": location.house,
+                    "lat": location.lat,
+                    "lng": location.lng,
+                },
+                "media_images": media_images
+            }
+            projects.append(project)
+
         async with httpx.AsyncClient(timeout=None) as client:
-            response = await client.post(base_url, data=data)
-            parsed = orjson.loads(response.text)
-            print(response)
+            for project_to in projects:
+                response = await client.post("https://backend.liberty-realty.ru/mirabase/", data=project_to)
+                print(response.text)
+                responses.append(response.text)
 
-        return OrjsonResponse({"parsed": parsed})
+        return OrjsonResponse({
+            "responses": responses,
+        })
 
+    async def post(self, request: ASGIRequest, **kwargs):
+        pr = request.POST
+        async with httpx.AsyncClient(timeout=None) as client:
+            images_n = []
+            for image in pr.get("media_images"):
+
+                r = await client.get(image)
+                file = BytesIO(r.content)
+                async with YandexUploader() as uploader:
+                    image_name = await uploader.image_upload(file)
+                images_n.append(image_name)
+
+                pr["images_names"] = images_n
+
+        await self.create_project(pr)
+
+        return OrjsonResponse({
+            "projects": "ok",
+        })
