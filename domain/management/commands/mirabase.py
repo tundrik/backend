@@ -1,4 +1,5 @@
 import asyncio
+import time
 from io import BytesIO
 
 import httpx
@@ -59,8 +60,8 @@ class Command(BaseCommand):
                 if not black_list:
                     buildings_ids.append(row.get("id"))
 
-            for buildings_id in buildings_ids[388:]:
-                await asyncio.sleep(4)
+            for buildings_id in buildings_ids:
+                await asyncio.sleep(3)
                 try:
                     count += 1
                     params = {
@@ -142,10 +143,11 @@ class Command(BaseCommand):
                         square = 30
 
                     project = {
+                        "nedvex_id": buildings_id,
                         "project_name": project_name,
                         "type_enum": type_enum,
                         "published": build_parse.get("created"),
-                        "ranging": build_parse.get("update"),
+                        "ranging": build_parse.get("created"),
                         "comment": build_parse.get("description"),
                         "price": price,
                         "square": square,
@@ -176,6 +178,5 @@ class Command(BaseCommand):
 
                 except Exception as exc:
                     print(exc)
-                    await send_log(f'NEDVEX: {exc}')
 
         print("Done! ")
