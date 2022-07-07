@@ -59,7 +59,8 @@ class Command(BaseCommand):
                 if not black_list:
                     buildings_ids.append(row.get("id"))
 
-            for buildings_id in buildings_ids:
+            for buildings_id in buildings_ids[388:]:
+                await asyncio.sleep(4)
                 try:
                     count += 1
                     params = {

@@ -110,22 +110,22 @@ class CreateInspector(Bsv):
             )
 
         db_location = Location.objects.create(**location)
-        for item in range(30):
-            db_estate = Estate.objects.create(
-                employee_id=self.viewer.pk,
-                customer=db_customer,
-                location=db_location,
-                ranging=int(time.time()),
-                published=int(time.time()),
-                **estate
-            )
-            for index, name in enumerate(images_names):
-                if name:
-                    EstateMedia.objects.create(
-                        estate=db_estate,
-                        link=name,
-                        ranging=index
-                    )
+
+        db_estate = Estate.objects.create(
+            employee_id=self.viewer.pk,
+            customer=db_customer,
+            location=db_location,
+            ranging=int(time.time()),
+            published=int(time.time()),
+            **estate
+        )
+        for index, name in enumerate(images_names):
+            if name:
+                EstateMedia.objects.create(
+                    estate=db_estate,
+                    link=name,
+                    ranging=index
+                )
 
     @sync_to_async
     @transaction.atomic

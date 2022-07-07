@@ -1,3 +1,5 @@
+import time
+
 from asgiref.sync import sync_to_async
 
 from base.bsv import Bsv
@@ -74,7 +76,7 @@ class MutateInspector(Bsv):
 
     @sync_to_async
     def mutation_project(self, pk, project, images_names):
-        Project.objects.filter(pk=pk).update(**project)
+        Project.objects.filter(pk=pk).update(**project, ranging=int(time.time()))
         db_project = Project.objects.get(pk=pk)
         for index, name in enumerate(images_names):
             if name:
@@ -92,7 +94,7 @@ class MutateInspector(Bsv):
         customer_id = db_estate.customer_id
         Customer.objects.filter(pk=customer_id).update(**customer)
 
-        Estate.objects.filter(pk=pk).update(**estate)
+        Estate.objects.filter(pk=pk).update(**estate, ranging=int(time.time()))
         for index, name in enumerate(images_names):
             if name:
                 try:
@@ -104,7 +106,7 @@ class MutateInspector(Bsv):
 
     @sync_to_async
     def mutation_demand(self, pk, demand, customer):
-        Demand.objects.filter(pk=pk).update(**demand)
+        Demand.objects.filter(pk=pk).update(**demand, ranging=int(time.time()))
         db_demand = Demand.objects.get(pk=pk)
         Customer.objects.filter(pk=db_demand.customer_id).update(**customer)
 
