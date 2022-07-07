@@ -41,7 +41,7 @@ class CursorPaginator:
         self.query = query
         self.first = first or 10
         sort = query.get('sort')
-        self._ordering = ['-ranging', '-pk']
+        self._ordering = ['ranging', '-pk']
 
         if sort is not None:
             self._ordering[0] = sort

@@ -1,15 +1,12 @@
+import asyncio
 import httpx
-import time
 import orjson
 from io import BytesIO
 from asgiref.sync import sync_to_async
 from django.core.handlers.asgi import ASGIRequest
-from bs4 import BeautifulSoup
-from xml.etree.ElementTree import Element, fromstring
-
-from django.db.models import Prefetch
 
 from base.endpoint import Endpoint
+from base.exceptions import send_log
 from base.helpers import get_full_name
 from base.response import OrjsonResponse
 from domain.models import Project, Employee, Location, ProjectMedia
@@ -142,13 +139,10 @@ class MirabaseApi(Endpoint):
         location = project.get("location")
         images_names = project.get("images_names")
         project = project.get("project")
-
         db_location = Location.objects.create(**location)
         db_project = Project.objects.create(
             location=db_location,
             employee_id=2,
-            published=int(time.time()),
-            ranging=int(time.time()),
             **project
         )
         for index, name in enumerate(images_names):
@@ -159,75 +153,153 @@ class MirabaseApi(Endpoint):
                     ranging=index
                 )
 
-    @sync_to_async
-    def query_manager(self):
-        print(Project.objects.count())
-        gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
-        qs = Project.objects.all()[:5] \
-            .prefetch_related(gs_media) \
-            .prefetch_related('location') \
-            .prefetch_related('employee')
-        return list(qs)
-
     async def get(self, request: ASGIRequest, **kwargs):
-        projects = []
-        responses = []
-        entities = await self.query_manager()
-        for entity in entities:
-            location = entity.location
-            media_images = []
-            media = entity.media.all()
-            for med in media:
-                media_images.append(med.link)
-
-            project = {
-                "project": {
-                    "project_name": entity.project_name,
-                    "type_enum": entity.type_enum,
-                    "price": entity.price,
-                    "square": entity.square,
-                    "price_square": entity.price_square,
-                    "mirabase_id": entity.mirabase_id,
-                },
-                "location": {
-                    "address": location.address,
-                    "locality": location.locality,
-                    "district": location.district,
-                    "street": location.street,
-                    "house": location.house,
-                    "lat": location.lat,
-                    "lng": location.lng,
-                },
-                "media_images": media_images
-            }
-            projects.append(project)
-
-        async with httpx.AsyncClient(timeout=None) as client:
-            for project_to in projects:
-                response = await client.post("https://backend.liberty-realty.ru/mirabase/", data=project_to)
-                print(response.text)
-                responses.append(response.text)
-
+        asyncio.create_task(self.task())
         return OrjsonResponse({
-            "responses": responses,
+            "folow": "folow",
+            "folow2": "folow2"
         })
 
-    async def post(self, request: ASGIRequest, **kwargs):
-        pr = request.POST
+    async def task(self):
+        buildings_ids = []
+        headers = {
+            'x-api-token': 'ZGJ6MTRXVUpWNjBOaFNXNno4L0NoQT09',
+            'content-type': 'application/json'
+        }
+        data = {
+            "deadlineEnd": False,
+            "orderDirection": "DESC",
+            "region": ["1", "2", "3", "4", "5", "6"],
+            "orderField": "date_update",
+            "userUid": "f6004ae67280c339c0e66ad7dd09e6f7",
+        }
         async with httpx.AsyncClient(timeout=None) as client:
-            images_n = []
-            for image in pr.get("media_images"):
+            response = await client.post("https://api.nedvx.ru/buildings/search", json=data, headers=headers)
+            buildings = orjson.loads(response.text)
+            data_nedvex = buildings.get("data")
+            rows = data_nedvex.get("rows")
+            for row in rows:
+                black_list = row.get("black_list")
+                if not black_list:
+                    buildings_ids.append(row.get("id"))
 
-                r = await client.get(image)
-                file = BytesIO(r.content)
-                async with YandexUploader() as uploader:
-                    image_name = await uploader.image_upload(file)
-                images_n.append(image_name)
+            for buildings_id in buildings_ids:
+                await asyncio.sleep(1)
+                try:
+                    params = {
+                        "id": buildings_id,
+                        "userUid": "f6004ae67280c339c0e66ad7dd09e6f7",
+                    }
+                    response2 = await client.get("https://api.nedvx.ru/buildings/get", params=params, headers=headers)
+                    build = orjson.loads(response2.text)
+                    build_parse = build.get("data")
+                    address = build_parse.get("address")
+                    region = build_parse["region"]["name"]
+                    subregion = build_parse["subregion"]["name"]
 
-                pr["images_names"] = images_n
+                    address_split = address.split(",")
+                    if address.startswith('Россия'):
+                        house = address_split[-1]
+                        street = address_split[-2]
+                    else:
+                        house = address_split[1]
+                        street = address_split[0]
 
-        await self.create_project(pr)
+                    project_name = build_parse.get("title")
 
-        return OrjsonResponse({
-            "projects": "ok",
-        })
+                    if project_name.startswith('АК'):
+                        type_enum = "АК"
+                    elif project_name.startswith('КП'):
+                        house = ""
+                        type_enum = "КП"
+
+                    elif project_name.startswith('ТХ'):
+                        house = ""
+                        type_enum = "КП"
+
+                    else:
+                        type_enum = "ЖК"
+
+                    house_territory = build_parse.get("house_territory")
+                    if house_territory == "Закрытая":
+                        has_closed_area = True
+                    else:
+                        has_closed_area = False
+
+                    supple = {
+                        "has_closed_area": has_closed_area,
+                        "has_lift": True,
+                        "has_rubbish_chute": False,
+                    }
+
+                    location = {
+                        "lat": build_parse.get("latitude"),
+                        "lng": build_parse.get("longitude"),
+                        "address": address,
+                        "street": street,
+                        "locality": region,
+                        "district": subregion,
+                        "house": house,
+                        "floors": 3,
+                        "supple": supple,
+                    }
+
+                    pavilions = build_parse.get("pavilions")[0]
+                    min_area_cost = pavilions.get("min_area_cost")
+                    cost_min = pavilions.get("cost_min")
+
+                    if cost_min:
+                        price = int(cost_min)
+                    else:
+                        price = 8000000
+
+                    if min_area_cost:
+                        price_square = int(min_area_cost)
+                    else:
+                        price_square = 120000
+
+                    min_square = build_parse.get("min_square")
+                    if min_square:
+                        square = int(float(min_square))
+                    else:
+                        square = 30
+
+                    project = {
+                        "project_name": project_name,
+                        "type_enum": type_enum,
+                        "published": build_parse.get("created"),
+                        "ranging": build_parse.get("update"),
+                        "comment": build_parse.get("description"),
+                        "price": price,
+                        "square": square,
+                        "price_square": price_square,
+                    }
+
+                    album = build_parse["albums"]["rows"][0]
+
+                    images = album.get("images")
+                    image_names = []
+
+                    for image in images[:18]:
+                        image_id = image.get("id")
+                        image_url = "https://api.nedvx.ru/image?id=" + str(image_id) + "&size=1200x800"
+                        r = await client.get(image_url)
+                        file = BytesIO(r.content)
+                        async with YandexUploader() as uploader:
+                            image_name = await uploader.image_upload(file)
+                        image_names.append(image_name)
+
+                    valid = {
+                        "location": location,
+                        "project": project,
+                        "images_names": image_names,
+                    }
+                    await self.create_project(valid)
+
+                except Exception as exc:
+                    await send_log(f'NEDVEX: {exc}')
+
+
+
+
+
