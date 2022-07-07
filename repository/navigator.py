@@ -293,7 +293,6 @@ class NavigatorRepository(Bsv):
 
     @sync_to_async
     def query_project(self, params, path, query):
-        print(Project.objects.count())
         gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
         qs = Project.objects.filter(**params) \
             .prefetch_related(gs_media) \
