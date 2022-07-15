@@ -98,7 +98,7 @@ class Location(models.Model):
 class Project(models.Model):
     """Таблица комплексов"""
     id = models.AutoField(primary_key=True)
-    mirabase_id = models.CharField(max_length=64)
+    nedvex_id = models.CharField(max_length=64)
     type_enum = models.CharField(max_length=8, default="ЖК")
     """type_enum: (ЖК|КП)"""
 
