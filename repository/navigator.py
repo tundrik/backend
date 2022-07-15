@@ -9,7 +9,7 @@ from base.helpers import (
     readable_price, encode_node_name, seconds_to_text, numeric_declension,
     phone_number_to_string, get_full_name
 )
-from constants import IMAGE_BASE, PIC_BASE, PRESENTATION_BASE, DEV
+from constants import IMAGE_BASE, PIC_BASE, PRESENTATION_BASE, DEV, VIDEO_BASE
 from domain.models import RESIDENTIAL, HOUSE, GROUND, COMMERCIAL, Estate, Project, Demand, Employee, EstateKitMember, \
     EstateMedia, ProjectMedia
 
@@ -125,7 +125,7 @@ class NavigatorRepository(Bsv):
             "node_type": "project",
             "has_edit": self.inspect_access(entity.employee),
             "person": self.serialize_person(entity.employee, "Риэлтор"),
-            "mediaImages": self.serialize_media_images(entity.media.all()),
+            "mediaImages": self.serialize_media(entity.media.all()),
             "present": present,
             "comment": entity.comment,
             "caption": entity.project_name,
@@ -168,7 +168,7 @@ class NavigatorRepository(Bsv):
             "has_edit": self.inspect_access(entity.employee),
             "person": person,
             "present": present,
-            "mediaImages": self.serialize_media_images(entity.media.all()),
+            "mediaImages": self.serialize_media(entity.media.all()),
             "caption": self.define_caption(entity),
             "comment": entity.comment,
             "address": self.define_address(entity.location),
@@ -223,6 +223,7 @@ class NavigatorRepository(Bsv):
         return {
             "node": code_node,
             "node_type": "employee",
+            "telegram_chat_id": entity.telegram_chat_id,
             "has_edit": self.viewer.role == "boss",
             'person': self.serialize_person(entity, "Риэлтор"),
             'sub': phone_number_to_string(entity.phone)
@@ -279,17 +280,25 @@ class NavigatorRepository(Bsv):
             return cls.OBJECTS.get(estate.object_type)
 
     @staticmethod
-    def serialize_media_images(media_images):
-        media_images_result = []
-        for media_image in media_images:
-            media_image = {
-                'linkPart': "{}{}.jpeg".format(IMAGE_BASE, media_image.link),
-                'presentation': "{}{}.jpeg".format(PRESENTATION_BASE, media_image.link),
-                'ranging': media_image.ranging,
-            }
-            media_images_result.append(media_image)
+    def serialize_media(medias):
+        media_result = []
+        for media in medias:
+            if media.type_enum == "image":
+                media_item = {
+                    'type_enum': media.type_enum,
+                    'linkPart': "{}{}.jpeg".format(IMAGE_BASE, media.link),
+                    'presentation': "{}{}.jpeg".format(PRESENTATION_BASE, media.link),
+                    'ranging': media.ranging,
+                }
+            else:
+                media_item = {
+                    'type_enum': media.type_enum,
+                    'linkPart': "{}{}.mp4".format(VIDEO_BASE, media.link),
+                    'ranging': media.ranging,
+                }
+            media_result.append(media_item)
 
-        return media_images_result
+        return media_result
 
     @sync_to_async
     def query_project(self, params, path, query):
@@ -325,7 +334,7 @@ class NavigatorRepository(Bsv):
 
     @sync_to_async
     def query_employee(self, params, path, query):
-        qs = Employee.objects.filter(**params).exclude(phone=79881607082)\
+        qs = Employee.objects.filter(**params).exclude(phone=79881607082) \
             .prefetch_related('manager')
         paginator = CursorPaginator(qs, path=path, query=query)
         entities_orm, cursor = paginator.get_instances()
@@ -334,7 +343,7 @@ class NavigatorRepository(Bsv):
     @sync_to_async
     def get_kit_members(self, pk):
         gs_media = Prefetch('estate__media', queryset=EstateMedia.objects.order_by('ranging'))
-        gs = EstateKitMember.objects.filter(kit_id=pk)\
+        gs = EstateKitMember.objects.filter(kit_id=pk) \
             .prefetch_related(gs_media) \
             .prefetch_related('estate__location') \
             .prefetch_related('estate__customer') \

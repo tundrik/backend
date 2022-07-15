@@ -8,6 +8,7 @@ from io import BytesIO
 from PIL import Image
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
+from base.helpers import generate_uuid
 from services.yandex.signature import AwsSignatureV4
 
 
@@ -36,6 +37,10 @@ class YandexUploader:
         new_image_420, new_image_1200, image_name = self.preparation_file(file)
         await self.upload_image(new_image_420, name=image_name, width=420)
         await self.upload_image(new_image_1200, name=image_name, width=1200)
+        return image_name
+
+    async def video_upload(self, file):
+        image_name = await self.upload_video(file)
         return image_name
 
     async def tasks_executor_upload(self, images: list[InMemoryUploadedFile]):
@@ -74,6 +79,16 @@ class YandexUploader:
             image_name = self._get_hash_hex(new_image_420)
 
         return new_image_420, new_image_1200, image_name
+
+    async def upload_video(self, file):
+        name = "video_" + str(generate_uuid())
+        url = f'{self.endpoint}/video/{name}.mp4'
+        buffer = BytesIO()
+        buffer.seek(0)
+        buffer_bytes = file.read()
+        headers = self.aws_auth(method='PUT', url=url, payload=buffer_bytes)
+        response = await self.client.request('PUT', url, content=buffer_bytes, headers=headers)
+        return name
 
     async def upload_image(self, new_image, *, name, width):
         """

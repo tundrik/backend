@@ -9,7 +9,7 @@ from base.helpers import (
     readable_price, encode_node_name, seconds_to_text, numeric_declension,
     phone_number_to_string, get_full_name, decode_node_name
 )
-from constants import IMAGE_BASE, PIC_BASE, PRESENTATION_BASE
+from constants import IMAGE_BASE, PIC_BASE, PRESENTATION_BASE, VIDEO_BASE
 from domain.models import RESIDENTIAL, HOUSE, GROUND, COMMERCIAL, Estate, Project, EstateMedia, ProjectMedia, \
     EstateKitMember
 from storage.store import Store
@@ -89,7 +89,7 @@ class ExploreRepository(Bsv):
             "node_type": "estate",
             "person": person,
             "present": present,
-            "mediaImages": self.serialize_media_images(entity.media.all()),
+            "mediaImages": self.serialize_media(entity.media.all()),
             "caption": self.define_caption(entity),
             "comment": entity.comment,
             "address": self.define_address(entity.location),
@@ -180,13 +180,15 @@ class ExploreRepository(Bsv):
             "node": code_node,
             "node_type": "project",
             "person": self.serialize_person(entity.employee, "Риэлтор"),
-            "mediaImages": self.serialize_media_images(entity.media.all()),
+            "mediaImages": self.serialize_media(entity.media.all()),
             "present": present,
             "comment": entity.comment,
-            "caption": "Комплекс " + entity.project_name,
+            "caption": entity.project_name,
             "address": self.define_address(entity.location),
             "published": seconds_to_text(entity.published),
             "pk": "ID: " + str(entity.pk),
+            "lat": entity.location.lat,
+            "lng": entity.location.lng,
             'savedByViewer': bool(str(entity.id) in set_saved),
             'has_kit': False,
         }
@@ -212,7 +214,7 @@ class ExploreRepository(Bsv):
             "node_type": "estate",
             "person": person,
             "present": present,
-            "mediaImages": self.serialize_media_images(entity.media.all()),
+            "mediaImages": self.serialize_media(entity.media.all()),
             "caption": self.define_caption(entity),
             "comment": entity.comment,
             "address": self.define_address(entity.location),
@@ -229,7 +231,7 @@ class ExploreRepository(Bsv):
     def serialize_person(person, role):
         return {
             'pic': "{}{}.jpeg".format(PIC_BASE, person.pic),
-            'name': person.first_name,
+            'name': get_full_name(person),
             'role': role,
             'phone': phone_number_to_string(person.phone),
         }
@@ -276,17 +278,25 @@ class ExploreRepository(Bsv):
             return cls.OBJECTS.get(estate.object_type)
 
     @staticmethod
-    def serialize_media_images(media_images):
-        media_images_result = []
-        for media_image in media_images:
-            media_image = {
-                'linkPart': "{}{}.jpeg".format(IMAGE_BASE, media_image.link),
-                'presentation': "{}{}.jpeg".format(PRESENTATION_BASE, media_image.link),
-                'ranging': media_image.ranging,
-            }
-            media_images_result.append(media_image)
+    def serialize_media(medias):
+        media_result = []
+        for media in medias:
+            if media.type_enum == "image":
+                media_item = {
+                    'type_enum': media.type_enum,
+                    'linkPart': "{}{}.jpeg".format(IMAGE_BASE, media.link),
+                    'presentation': "{}{}.jpeg".format(PRESENTATION_BASE, media.link),
+                    'ranging': media.ranging,
+                }
+            else:
+                media_item = {
+                    'type_enum': media.type_enum,
+                    'linkPart': "{}{}.mp4".format(VIDEO_BASE, media.link),
+                    'ranging': media.ranging,
+                }
+            media_result.append(media_item)
 
-        return media_images_result
+        return media_result
 
     @sync_to_async
     def query_project(self, params, path, query):

@@ -116,10 +116,14 @@ def seconds_to_text(unix: int) -> str:
     result_text = ['день', 'дня', 'дней']
     if secs <= 43200:
         return "сегодня"
-    if secs >= 2592000:
+    elif secs >= 31536000:
+
+        result = secs // 31536000
+        result_text = ['год', 'года', 'лет']
+    elif secs >= 2592000:
         result = secs // 2592000
         result_text = ['месяц', 'месяца', 'месяцев']
     elif secs >= 86400:
         result = secs // 86400
         result_text = ['день', 'дня', 'дней']
-    return f"{numeric_declension(result, result_text)}"
+    return f"{numeric_declension(result, result_text)} назад"

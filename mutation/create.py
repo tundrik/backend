@@ -121,10 +121,16 @@ class CreateInspector(Bsv):
         )
         for index, name in enumerate(images_names):
             if name:
+                if name.startswith('video_'):
+                    type_enum = "video"
+                else:
+                    type_enum = "image"
+
                 EstateMedia.objects.create(
-                    estate=db_estate,
-                    link=name,
-                    ranging=index
+                        type_enum=type_enum,
+                        estate=db_estate,
+                        link=name,
+                        ranging=index
                 )
 
     @sync_to_async

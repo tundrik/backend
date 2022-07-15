@@ -1,7 +1,7 @@
 import httpx
 import orjson
 from base.exceptions import ValidateError
-from domain.models import GROUND, HOUSE
+from domain.models import GROUND, HOUSE, RESIDENTIAL, COMMERCIAL
 
 
 def len_inspect(val, le, mes):
@@ -90,6 +90,30 @@ def validate_demand(payload):
     return valid
 
 
+def validate_location_mutate(payload):
+    type_enum = payload.get("type_enum")
+    valid = {}
+    supple = {}
+
+    if not type_enum == GROUND:
+        valid["floors"] = payload.get('floors')
+
+    if type_enum == GROUND or type_enum == HOUSE:
+        supple["has_electricity"] = bool(payload.get('has_electricity'))
+        supple["has_water"] = bool(payload.get('has_water'))
+        supple["has_gas"] = bool(payload.get('has_gas'))
+        supple["has_sewerage"] = bool(payload.get('has_sewerage'))
+
+    if type_enum == RESIDENTIAL or type_enum == COMMERCIAL:
+        supple["has_lift"] = bool(payload.get('has_lift'))
+        supple["has_rubbish_chute"] = bool(payload.get('has_rubbish_chute'))
+        supple["has_closed_area"] = bool(payload.get('has_closed_area'))
+
+    valid["supple"] = supple
+
+    return valid
+
+
 async def validate_location(payload):
     address = payload.get("address")
     base_url = "https://geocode-maps.yandex.ru/1.x"
@@ -137,23 +161,23 @@ async def validate_location(payload):
             if component.get("kind") == "locality":
                 valid["locality"] = component.get("name")
 
-    floors = payload.get('floors')
-    if floors:
-        valid["floors"] = floors
+    type_enum = payload.get("type_enum")
 
     supple = {}
 
-    has_lift = payload.get('has_lift')
-    if has_lift:
-        supple["has_lift"] = bool(has_lift)
+    if not type_enum == GROUND:
+        valid["floors"] = payload.get('floors')
 
-    has_rubbish_chute = payload.get('has_rubbish_chute')
-    if has_rubbish_chute:
-        supple["has_rubbish_chute"] = bool(has_rubbish_chute)
+    if type_enum == GROUND or type_enum == HOUSE:
+        supple["has_electricity"] = bool(payload.get('has_electricity'))
+        supple["has_water"] = bool(payload.get('has_water'))
+        supple["has_gas"] = bool(payload.get('has_gas'))
+        supple["has_sewerage"] = bool(payload.get('has_sewerage'))
 
-    has_closed_area = payload.get('has_closed_area')
-    if has_closed_area:
-        supple["has_closed_area"] = bool(has_closed_area)
+    if type_enum == RESIDENTIAL or type_enum == COMMERCIAL:
+        supple["has_lift"] = bool(payload.get('has_lift'))
+        supple["has_rubbish_chute"] = bool(payload.get('has_rubbish_chute'))
+        supple["has_closed_area"] = bool(payload.get('has_closed_area'))
 
     valid["supple"] = supple
 
@@ -169,7 +193,7 @@ def validate_estate(payload):
         payload.get("comment"), 50,
         f"Описание - требуется еще {50 - comment_len} символов"
     ),
-    print(payload.get("comment"))
+    supple = {}
     valid = {
         "type_enum": type_enum,
         "price": price,
@@ -187,6 +211,8 @@ def validate_estate(payload):
         price_square = int(int(price) / int(square))
         valid['square'] = square
         valid['price_square'] = price_square
+        valid["rooms"] = payload.get('rooms')
+        supple["renovation"] = payload.get('renovation')
 
     if type_enum == GROUND or type_enum == HOUSE:
         square_ground = int_inspect(payload.get("square_ground"), 4, "Введите площадь участка")
@@ -194,29 +220,17 @@ def validate_estate(payload):
         valid['square_ground'] = square_ground
         valid['price_square_ground'] = price_square_ground
 
-    supple = {}
-
     if type_enum == HOUSE:
         supple["status"] = payload.get('status')
+        supple["walls_type"] = payload.get('walls_type')
 
-    floor = payload.get('floor')
-    if floor:
+    if type_enum == RESIDENTIAL or type_enum == COMMERCIAL:
+        floors = int_inspect(payload.get("floors"), 1, "Введите этажность")
+        floor = int_inspect(payload.get("floor"), 1, "Введите этаж")
+        if floor > floors:
+            raise ValidateError("Этаж не может быть больше этажности")
         valid["floor"] = floor
-        floors = payload.get('floors')
-        if floors:
-            supple["has_last_floor"] = bool(floor == floors)
-
-    renovation = payload.get('renovation')
-    if renovation:
-        supple["renovation"] = renovation
-
-    walls_type = payload.get('walls_type')
-    if walls_type:
-        supple["walls_type"] = walls_type
-
-    rooms = payload.get('rooms')
-    if rooms:
-        valid["rooms"] = rooms
+        supple["has_last_floor"] = bool(floor == floors)
 
     if payload.get('project'):
         valid["project_id"] = payload.get('project')

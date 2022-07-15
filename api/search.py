@@ -135,9 +135,31 @@ class TestApi(Endpoint):
 
 class MirabaseApi(Endpoint):
     async def get(self, request: ASGIRequest, **kwargs):
+        buildings_ids = []
+        headers = {
+            'x-api-token': 'WnNCRkJSQW94OHoweDlCSG1VQ2t3Zz09',
+            'content-type': 'application/json'
+        }
+        data = {
+            "deadlineEnd": False,
+            "orderDirection": "DESC",
+            "region": ["1", "2", "3", "4", "5", "6"],
+            "orderField": "date_update",
+            "userUid": "f6004ae67280c339c0e66ad7dd09e6f7",
+        }
+        async with httpx.AsyncClient(timeout=None) as client:
+            response = await client.post("https://api.nedvx.ru/buildings/search", json=data, headers=headers)
+            buildings = orjson.loads(response.text)
+            data_nedvex = buildings.get("data")
+            rows = data_nedvex.get("rows")
+            for row in rows:
+                black_list = row.get("black_list")
+                if not black_list:
+                    buildings_ids.append(row.get("id"))
+
         return OrjsonResponse({
-            "folow": "bui",
-            "folow2": "folow2"
+            "len": len(buildings_ids),
+            "buildings_ids": buildings_ids,
         })
 
 

@@ -17,12 +17,16 @@ from services.yandex.s3 import YandexUploader
 class UploadApi(Endpoint):
     async def post(self, request: ASGIRequest, type_node=None):
         file = request.FILES.get('files')
-        print(file)
         async with YandexUploader() as uploader:
-            if type_node == 'employee':
-                image_name = await uploader.profile_upload(file)
+
+            if file.content_type == 'video/mp4':
+                image_name = await uploader.video_upload(file)
             else:
-                image_name = await uploader.image_upload(file)
+                if type_node == 'employee':
+                    image_name = await uploader.profile_upload(file)
+                else:
+                    image_name = await uploader.image_upload(file)
+
         return OrjsonResponse({
             'success': True,
             'message': image_name,

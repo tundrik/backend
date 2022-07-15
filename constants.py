@@ -26,4 +26,5 @@ GIT_TOKEN_PYCHARM = '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'
 
 PIC_BASE = "https://storage.yandexcloud.net/graph/profile/"
 IMAGE_BASE = "https://storage.yandexcloud.net/graph/420/"
+VIDEO_BASE = "https://storage.yandexcloud.net/graph/video/"
 PRESENTATION_BASE = "https://storage.yandexcloud.net/graph/1200/"

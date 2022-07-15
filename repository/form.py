@@ -19,6 +19,18 @@ RENOVATION = [
     {"value": "3", "label": "Евро"},
     {"value": "4", "label": "Дизайнерский"},
 ]
+
+WALLS_TYPE = [
+    {"value": "1", "label": "Кирпич"},
+    {"value": "2", "label": "Брус"},
+    {"value": "3", "label": "Бревно"},
+    {"value": "4", 'label': "Газоблоки"},
+    {"value": "5", 'label': "Металл"},
+    {"value": "6", 'label': "Пеноблоки"},
+    {"value": "7", 'label': "Сэндвич-панели"},
+    {"value": "8", 'label': "Экспериментальные материалы"},
+]
+
 STATUS = [
     {"value": "izhs", "label": "ИЖС"},
     {"value": "snt", "label": "СНТ"},
@@ -77,6 +89,7 @@ COMMERCIAL_OBJECTS = [
 
 PROJECT_TYPE_ENUM = [
     {"value": "ЖК", "label": "Жилой комплекс"},
+    {"value": "АК", "label": "Апартаментный комплекс"},
     {"value": "КП", "label": "Коттеджный поселок"},
 ]
 
@@ -106,12 +119,22 @@ class FormRepository(Bsv):
         entity = await self.query_project(pk)
         extra = {
             "type_enum": entity.type_enum,
+            "location_pk": entity.location.pk,
             "mediaImages": self.serialize_media_images(entity.media.all())
         }
+        has_lift = entity.location.supple.get("has_lift")
+        has_rubbish_chute = entity.location.supple.get("has_rubbish_chute")
+        has_closed_area = entity.location.supple.get("has_closed_area")
+
         return {
             "type_node": "project",
             "extra": extra,
             "form": [
+                self.get_select("ОСНОВНЫЕ", entity.type_enum, "Тип комплекса", "type_enum", PROJECT_TYPE_ENUM),
+                self.get_input("О КОМПЛЕКСЕ", entity.location.floors, "Этажность", "number", "floors"),
+                self.get_input(None, has_lift, "Есть лифт", "checkbox", "has_lift"),
+                self.get_input(None, has_rubbish_chute, "Есть мусоропровод", "checkbox", "has_rubbish_chute"),
+                self.get_input(None, has_closed_area, "Закрытая територия", "checkbox", "has_closed_area"),
                 self.get_input("Данные комплекса", entity.price, "Минимальная цена", "number", "price"),
                 self.get_input(None, entity.price_square, "Минимальная цена за м²", "number", "price_square"),
                 self.get_input(None, entity.square, "Минимальная площадь", "number", "square"),
@@ -126,33 +149,67 @@ class FormRepository(Bsv):
         extra = {
             "type_enum": type_enum,
             "customer_pk": entity.customer.pk,
+            "location_pk": entity.location.pk,
             "mediaImages": self.serialize_media_images(entity.media.all())
         }
         form = []
 
         if type_enum == RESIDENTIAL:
             form.extend([
-                self.get_select("Данные объекта", entity.object_type, "Тип объекта", "object_type",
+                self.get_select("ОСНОВНЫЕ", entity.object_type, "Тип объекта", "object_type",
                                 RESIDENTIAL_OBJECTS),
             ])
 
         if type_enum == HOUSE:
             form.extend([
-                self.get_select("Данные объекта", entity.object_type, "Тип объекта", "object_type", HOUSE_OBJECTS),
+                self.get_select("ОСНОВНЫЕ", entity.object_type, "Тип объекта", "object_type", HOUSE_OBJECTS),
             ])
 
         if type_enum == GROUND:
             form.extend([
-                self.get_select("Данные объекта", entity.object_type, "Тип объекта", "object_type", GROUND_OBJECTS),
+                self.get_select("ОСНОВНЫЕ", entity.object_type, "Тип объекта", "object_type", GROUND_OBJECTS),
             ])
 
         if type_enum == COMMERCIAL:
             form.extend([
-                self.get_select("Данные объекта", entity.object_type, "Тип объекта", "object_type", COMMERCIAL_OBJECTS),
+                self.get_select("ОСНОВНЫЕ", entity.object_type, "Тип объекта", "object_type", COMMERCIAL_OBJECTS),
+            ])
+
+        if not type_enum == GROUND:
+            form.extend([
+                self.get_input("О ДОМЕ", entity.location.floors, "Этажность", "number", "floors"),
+            ])
+
+        if type_enum == HOUSE:
+            form.extend([
+                self.get_select(None, entity.supple.get("walls_type"), "Материал стен", "walls_type", WALLS_TYPE),
+            ])
+
+        if type_enum == RESIDENTIAL or type_enum == COMMERCIAL:
+            has_lift = entity.location.supple.get("has_lift")
+            has_rubbish_chute = entity.location.supple.get("has_rubbish_chute")
+            has_closed_area = entity.location.supple.get("has_closed_area")
+
+            form.extend([
+                self.get_input(None, has_lift, "Есть лифт", "checkbox", "has_lift"),
+                self.get_input(None, has_rubbish_chute, "Есть мусоропровод", "checkbox", "has_rubbish_chute"),
+                self.get_input(None, has_closed_area, "Закрытая територия", "checkbox", "has_closed_area"),
+            ])
+
+        if type_enum == GROUND or type_enum == HOUSE:
+            has_electricity = entity.location.supple.get("has_electricity")
+            has_water = entity.location.supple.get("has_water")
+            has_gas = entity.location.supple.get("has_gas")
+            has_sewerage = entity.location.supple.get("has_sewerage")
+            form.extend([
+                self.get_input("КОМУНИКАЦИИ", has_electricity, "Есть электричество", "checkbox", "has_electricity"),
+                self.get_input(None, has_water, "Есть водопровод", "checkbox", "has_water"),
+                self.get_input(None, has_gas, "Есть газ", "checkbox", "has_gas"),
+                self.get_input(None, has_sewerage, "Есть канализация", "checkbox", "has_sewerage"),
             ])
 
         form.extend([
-            self.get_input("", entity.price, "Цена", "number", "price"),
+            self.get_input("Данные объекта", entity.price, "Цена", "number", "price"),
         ])
 
         if not type_enum == GROUND:
@@ -160,6 +217,11 @@ class FormRepository(Bsv):
                 self.get_input(None, entity.square, "Площадь", "number", "square"),
                 self.get_select(None, entity.rooms, "Количество комнат", "rooms", ROOMS),
                 self.get_select(None, entity.supple.get("renovation"), "Ремонт", "renovation", RENOVATION),
+            ])
+
+        if type_enum == RESIDENTIAL or type_enum == COMMERCIAL:
+            form.extend([
+                self.get_input(None, entity.floor, "Этаж", "number", "floor")
             ])
 
         if type_enum == GROUND or type_enum == HOUSE:
@@ -269,12 +331,17 @@ class FormRepository(Bsv):
     @sync_to_async
     def query_project(self, pk):
         gs_media = Prefetch('media', queryset=ProjectMedia.objects.order_by('ranging'))
-        return Project.objects.filter(pk=pk).prefetch_related(gs_media).first()
+        return Project.objects.filter(pk=pk)\
+            .prefetch_related('location')\
+            .prefetch_related(gs_media).first()
 
     @sync_to_async
     def query_estate(self, pk):
         gs_media = Prefetch('media', queryset=EstateMedia.objects.order_by('ranging'))
-        return Estate.objects.filter(pk=pk).prefetch_related(gs_media).select_related('customer').first()
+        return Estate.objects.filter(pk=pk) \
+            .prefetch_related(gs_media) \
+            .select_related('location') \
+            .select_related('customer').first()
 
     @sync_to_async
     def query_employee(self, pk):
