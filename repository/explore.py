@@ -16,9 +16,23 @@ from storage.store import Store
 
 
 class ExploreRepository(Bsv):
+    DETALE_ROOMS = {
+        11: 'Студия',
+        12: 'Свободноя планировка',
+        1: '1',
+        2: '2',
+        3: '3',
+        4: '4',
+        5: '5',
+        6: '6',
+        7: '7',
+        8: '8',
+        9: '9',
+        10: '10 и более',
+    }
     READABLE_ROOMS = {
         11: 'Квартира студия',
-        12: 'Свободная планировка',
+        12: 'Квартира свободной планировки',
         1: '1-комнатная квартира',
         2: '2-комнатная квартира',
         3: '3-комнатная квартира',
@@ -135,14 +149,14 @@ class ExploreRepository(Bsv):
         entity = await self.query_estate_node(pk)
         code_node = encode_node_name(entity.id, "estate")
         set_saved = await Store.get_saved(self.viewer.guid, "estate")
-        entity_dict = self.serialize_estate(entity, code_node, set_saved)
+        entity_dict = self.serialize_node_estate(entity, code_node, set_saved)
         return entity_dict
 
     async def retrieve_project(self, pk):
         entity = await self.query_project_node(pk)
         code_node = encode_node_name(entity.id, "project")
         set_saved = await Store.get_saved(self.viewer.guid, "project")
-        entity_dict = self.serialize_project(entity, code_node, set_saved)
+        entity_dict = self.serialize_node_project(entity, code_node, set_saved)
         return entity_dict
 
     async def retrieve_collection(self, *, node_type, params, path, query):
@@ -226,6 +240,94 @@ class ExploreRepository(Bsv):
             'savedByViewer': bool(str(entity.id) in set_saved),
             'has_kit': False,
         }
+
+    def serialize_node_project(self, entity, code_node, set_saved):
+        items = [{
+            "label": "Общая площадь:",
+            "value": "от {} {}".format(entity.square, "м²"),
+        }]
+
+        return {
+            "node": code_node,
+            "node_type": "project",
+            'price': "от " + readable_price(entity.price),
+            'priceSquare': "{}{}".format(readable_price(entity.price_square), "/м²"),
+            'items': items,
+            "person": self.serialize_person(entity.employee, "Риэлтор"),
+            "mediaImages": self.serialize_media(entity.media.all()),
+
+            "comment": entity.comment,
+            "caption": entity.project_name,
+            "address": self.define_address(entity.location),
+            "published": seconds_to_text(entity.published),
+            "pk": "ID: " + str(entity.pk),
+            "lat": entity.location.lat,
+            "lng": entity.location.lng,
+            'savedByViewer': bool(str(entity.id) in set_saved),
+            'has_kit': False,
+        }
+
+    def serialize_node_estate(self, entity, code_node, set_saved):
+        if entity.type_enum == GROUND:
+            square = numeric_declension(entity.square_ground, ['сотка', 'сотки', 'соток'])
+            price_square = "{}{}".format(readable_price(entity.price_square_ground), "/сотка")
+        else:
+            square = "{} {}".format(entity.square, "м²")
+            price_square = "{}{}".format(readable_price(entity.price_square), "/м²")
+
+        published = seconds_to_text(entity.published)
+        person = self.serialize_person(entity.employee, "Риэлтор")
+
+        return {
+            "node": code_node,
+            "node_type": "estate",
+            "person": person,
+            'price': readable_price(entity.price),
+            'priceSquare': price_square,
+            'items': self.define_items(entity, square),
+            "mediaImages": self.serialize_media(entity.media.all()),
+            "caption": self.define_caption(entity),
+            "comment": entity.comment,
+            "address": self.define_address(entity.location),
+            "suple": entity.location.supple,
+            "published": published,
+            "pk": "ID: " + str(entity.pk),
+            "lat": entity.location.lat,
+            "lng": entity.location.lng,
+            'savedByViewer': bool(str(entity.id) in set_saved),
+            'has_kit': False,
+        }
+
+    @classmethod
+    def define_items(cls, estate, square):
+        items = [{
+            "label": "Общая площадь:",
+            "value": square,
+        }]
+
+        if estate.type_enum == RESIDENTIAL:
+            items.extend([
+                {
+                    "label": "Количество комнат:",
+                    "value": cls.DETALE_ROOMS.get(estate.rooms),
+                }, {
+                    "label": "Этаж:",
+                    "value": "{} из {}".format(estate.floor, estate.location.floors),
+                }
+            ])
+
+        if estate.type_enum == HOUSE:
+            items.extend([
+                {
+                    "label": "Площадь участка:",
+                    "value": numeric_declension(estate.square_ground, ['сотка', 'сотки', 'соток']),
+                }, {
+                    "label": "Этажность:",
+                    "value": estate.location.floors,
+                }
+            ])
+
+        return items
 
     @staticmethod
     def serialize_person(person, role):
